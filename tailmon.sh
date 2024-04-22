@@ -908,7 +908,7 @@ while true; do
       if promptyn "[y/n]: "; then
         echo ""
         echo -e "\nDownloading TAILMON ${CGreen}v$DLversion${CClear}"
-        curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/vpnmon-r3.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+        curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
         echo ""
         echo -e "Download successful!${CClear}"
         echo ""
@@ -1105,11 +1105,11 @@ if [ "$1" == "-h" ] || [ "$1" == "-help" ]
   echo ""
   echo "TAILMON v$version Commandline Option Usage:"
   echo ""
-  echo "vpnmon-r3 -h | -help"
-  echo "vpnmon-r3 -setup"
-  echo "vpnmon-r3 -bw"
-  echo "vpnmon-r3 -screen"
-  echo "vpnmon-r3 -screen -now"
+  echo "tailmon -h | -help"
+  echo "tailmon -setup"
+  echo "tailmon -bw"
+  echo "tailmon -screen"
+  echo "tailmon -screen -now"
   echo ""
   echo " -h | -help (this output)"
   echo " -setup (displays the setup menu)"
@@ -1191,7 +1191,7 @@ if [ "$1" == "-noswitch" ]
     clear #last switch before the main program starts
 
     if [ ! -f $cfgpath ] && [ ! -f "/opt/bin/timeout" ] && [ ! -f "/opt/sbin/screen" ]; then
-      echo -e "${CRed}ERROR: TAILMON is not configured.  Please run 'vpnmon-r3 -setup' first.${CClear}"
+      echo -e "${CRed}ERROR: TAILMON is not configured.  Please run 'tailmon -setup' first.${CClear}"
       echo ""
       exit 0
     fi
@@ -1204,7 +1204,7 @@ fi
 #DEBUG=; set -x # uncomment/comment to enable/disable debug mode
 #{              # uncomment/comment to enable/disable debug mode
 
-# Create the necessary folder/file structure for VPNMON-R3 under /jffs/addons
+# Create the necessary folder/file structure for tailmon under /jffs/addons
 if [ ! -d "/jffs/addons/tailmon.d" ]; then
   mkdir -p "/jffs/addons/tailmon.d"
 fi
@@ -1221,7 +1221,7 @@ while true; do
     source $config
   else
     clear
-    echo -e "${CRed}ERROR: TAILMON is not configured.  Please run 'vpnmon-r3.sh -setup' first."
+    echo -e "${CRed}ERROR: TAILMON is not configured.  Please run 'tailmon.sh -setup' first."
     echo ""
     echo -e "${CClear}"
     exit 1
@@ -1258,7 +1258,7 @@ while true; do
     elif [ $tzonechars = 4 ]; then tzspaces="     ";
     elif [ $tzonechars = 5 ]; then tzspaces="    "; fi
 
-    #Display VPNMON-R3 client header
+    #Display tailmon client header
     echo -en "${InvGreen} ${InvDkGray} TAILMON - v"
     printf "%-8s" $version
     echo -e "                           ${CWhite}Operations Menu ${InvDkGray}            $tzspaces$(date) ${CClear}"
