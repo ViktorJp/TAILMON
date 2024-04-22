@@ -7,13 +7,14 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 version="0.0.1"
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
+dlverpath="/jffs/addons/tailmon.d/version.txt"                       # Static path to the version file
+logfile="/jffs/addons/tailmon.d/tailmon.log"                         # Static path to the log
 tsinstalled=0
 keepalive=0
 timerloop=60
 logsize=2000
 amtmemailsuccess=0
 amtmemailfailure=0
-precmd=""
 args="--tun=userspace-networking --state=/opt/var/tailscaled.state"
 preargs="nohup"
 routes="192.168.50.0/24"
@@ -94,7 +95,6 @@ progressbaroverride()
 
   if [ $key_press ]; then
       case $key_press in
-      	  3) editargs;;
           [Cc]) vsetup;;
           [Dd]) tsdown;;
           [Ee]) logoNMexit; echo -e "${CClear}\n"; exit 0;;
@@ -102,6 +102,7 @@ progressbaroverride()
           [Kk]) vconfig;;
           [Ll]) vlogs;;
           [Mm]) timerloopconfig;;
+          [Pp]) edittsoptions;;
           [Ss]) startts;;
           [Tt]) stopts;;
           [Uu]) tsup;;
@@ -283,6 +284,71 @@ while true; do
   echo -e "${InvGreen} ${CClear} Current: ${CGreen}$timerloop sec${CClear}"
   echo ""
   read -p "Please enter value (1-999)? (e=Exit): " EnterTimerLoop
+  case $EnterTimerLoop in
+    [1-9]) 
+      timerloop=$EnterTimerLoop
+      saveconfig
+      timer=$timerloop
+    ;;
+
+    [1-9][0-9])
+      timerloop=$EnterTimerLoop
+      saveconfig
+      timer=$timerloop
+    ;;
+
+    [1-9][0-9][0-9])
+      timerloop=$EnterTimerLoop
+      saveconfig
+      timer=$timerloop
+    ;;
+
+    *)
+      echo ""
+      echo -e "${CClear}[Exiting]"
+      timer=$timerloop
+      break
+    ;;
+  esac
+
+done
+
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# edittsoptions lets you edit the args for tailscale
+
+edittsoptions()
+{
+
+while true; do
+  clear
+  echo -e "${InvGreen} ${InvDkGray}${CWhite} Edit ARGS and PREARGS Options                                                         ${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} Please indicate what options you want in the Tailscale ARGS and PREARGS fields for${CClear}"
+  echo -e "${InvGreen} ${CClear} the Tailscale S06Tailscaled service? It is recommended to leave these options as${CClear}"
+  echo -e "${InvGreen} ${CClear} default to ensure the greatest amount of stability. Once you have made changes,${CClear}"
+  echo -e "${InvGreen} ${CClear} please make sure to (S)ync Options, which will write your changes to the Tailscale${CClear}"
+  echo -e "${InvGreen} ${CClear} Service file (/opt/etc/init.d/S06tailscaled)${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} (Defaults:${CClear}"
+  echo -e "${InvGreen} ${CClear} ARGS=\"--tun=userspace-networking --state=/opt/var/tailscaled.state\"${CClear}"
+  echo -e "${InvGreen} ${CClear} PREARGS=\"nohup\"${CClear})"
+  echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} Current values in /opt/etc/init.d/S06tailscaled:${CClear}"
+  s06args=$(cat /opt/etc/init.d/S06tailscaled | grep ^ARGS= | cut -d '=' -f 2-) 2>/dev/null
+  s06preargs=$(cat /opt/etc/init.d/S06tailscaled | grep ^PREARGS= | cut -d '=' -f 2-) 2>/dev/null
+  echo -e "${InvGreen} ${CClear} ${CGreen}ARGS=$s06args${CClear}"
+  echo -e "${InvGreen} ${CClear} ${CGreen}PREARGS=$s06preargs${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} Saved TAILMON values:${CClear}"
+  echo -e "${InvGreen} ${CClear} ${CGreen}(1) ARGS=\"$args\"${CClear}"
+  echo -e "${InvGreen} ${CClear} ${CGreen}(2) PREARGS=\"$preargs\"${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  
+  echo ""
+  read -p "Please enter value (1-2)? (s=Sync Options) (e=Exit): " EnterTimerLoop
   case $EnterTimerLoop in
     [1-9]) 
       timerloop=$EnterTimerLoop
@@ -594,6 +660,189 @@ done
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
+# vupdate is a function that provides a UI to check for script updates and allows you to install the latest version...
+
+vupdate()
+{
+
+updatecheck # Check for the latest version from source repository
+while true; do
+  clear
+  echo -e "${InvGreen} ${InvDkGray}${CWhite} Update Utility                                                                        ${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} This utility allows you to check, download and install updates"     
+  echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+  echo ""
+  echo -e "Current Version: ${CGreen}$version${CClear}"
+  echo -e "Updated Version: ${CGreen}$DLversion${CClear}"
+  echo ""
+  if [ "$version" == "$DLversion" ]
+    then
+      echo -e "You are on the latest version! Would you like to download anyways? This will overwrite${CClear}"
+      echo -e "your local copy with the current build.${CClear}"
+      if promptyn "[y/n]: "; then
+        echo ""
+        echo -e "\nDownloading TAILMON ${CGreen}v$DLversion${CClear}"
+        curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+        echo ""
+        echo -e "Download successful!${CClear}"
+        echo ""
+        read -rsp $'Press any key to restart TAILMON...\n' -n1 key
+        exec /jffs/scripts/tailmon.sh -setup
+      else
+        echo ""
+        echo ""
+        echo -e "Exiting Update Utility...${CClear}"
+        sleep 1
+        return
+      fi
+    else
+      echo -e "Score! There is a new version out there! Would you like to update?${CClear}"
+      if promptyn "[y/n]: "; then
+        echo ""
+        echo -e "\nDownloading TAILMON ${CGreen}v$DLversion${CClear}"
+        curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/vpnmon-r3.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+        echo ""
+        echo -e "Download successful!${CClear}"
+        echo ""
+        read -rsp $'Press any key to restart TAILMON...\n' -n1 key
+        exec /jffs/scripts/tailmon.sh -setup
+      else
+        echo ""
+        echo ""
+        echo -e "Exiting Update Utility...${CClear}"
+        sleep 1
+        return
+      fi
+  fi
+done
+
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# updatecheck is a function that downloads the latest update version file, and compares it with what's currently installed
+
+updatecheck()
+{
+
+  # Download the latest version file from the source repository
+  curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
+
+  if [ -f $dlverpath ]
+    then
+      # Read in its contents for the current version file
+      DLversion=$(cat $dlverpath)
+
+      # Compare the new version with the old version and log it
+      if [ "$beta" == "1" ]; then   # Check if Dev/Beta Mode is enabled and disable notification message
+        UpdateNotify=0
+      elif [ "$DLversion" != "$version" ]; then
+        DLversionPF=$(printf "%-8s" $DLversion)
+        versionPF=$(printf "%-8s" $version)
+        UpdateNotify="${InvYellow} ${InvDkGray}${CWhite} Update available: v$versionPF -> v$DLversionPF                                                                     ${CClear}"
+      else
+        UpdateNotify=0
+      fi
+  fi
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# vuninstall is a function that uninstalls and removes all traces of tailmon/tailscale from your router...
+
+vuninstall()
+{
+
+while true; do
+  clear
+  echo -e "${InvGreen} ${InvDkGray}${CWhite} Uninstall Utility                                                                     ${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} You are about to uninstall TAILMON and optionally, Tailscale from your router! This"
+  echo -e "${InvGreen} ${CClear} action is irreversible."
+  echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+  echo ""
+  echo -e "Do you wish to proceed?${CClear}"
+  if promptyn "[y/n]: "; then
+    echo ""
+    echo -e "\nAre you sure? Please type 'y' to validate you wish to proceed.${CClear}"
+      if promptyn "[y/n]: "; then
+        clear
+        #Remove and uninstall files/directories
+        rm -f -r /jffs/addons/tailmon.d
+        rm -f /jffs/scripts/tailmon.sh
+        echo ""
+        echo -e "\nTAILMON has been uninstalled...${CClear}"
+        echo ""
+        echo -e "Would you also like to uninstall Tailscale from your router?"
+        if promptyn "[y/n]: "; then
+          if [ -d "/opt" ]; then # Does entware exist? If yes proceed, if no error out.
+            echo ""
+            echo -e "\nUpdating Entware Packages..."
+            echo ""
+            opkg update
+            echo ""
+            echo -e "Uninstalling Tailscale Package(s)..."
+            echo ""
+            opkg remove tailscale
+            echo ""
+            read -rsp $'Press any key to continue...\n' -n1 key
+          else
+            clear
+            echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
+            echo -e "Please install Entware using the AMTM utility before proceeding..."
+            echo ""
+            read -rsp $'Press any key to continue...\n' -n1 key
+            exit 1
+          fi
+          exit 0
+        else
+          echo ""
+          echo -e "\nExiting Uninstall Utility...${CClear}"
+          sleep 1
+          return
+        fi
+      else
+        echo ""
+        echo -e "\nExiting Uninstall Utility...${CClear}"
+        sleep 1
+        return
+      fi
+  fi      
+done
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# vlogs is a function that calls the nano text editor to view the TAILMON log file
+
+vlogs()
+{
+
+export TERM=linux
+nano +999999 --linenumbers $logfile
+timer=$timerloop
+trimlogs
+
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# trimlogs will cut down log size (in rows) based on custom value
+
+trimlogs()
+{
+
+  if [ $logsize -gt 0 ]; then
+
+      currlogsize=$(wc -l $logfile | awk '{ print $1 }' ) # Determine the number of rows in the log
+
+      if [ $currlogsize -gt $logsize ] # If it's bigger than the max allowed, tail/trim it!
+        then
+          echo "$(tail -$logsize $logfile)" > $logfile
+      fi
+
+  fi
+}
+
+
+# -------------------------------------------------------------------------------------------------------------------------
 # saveconfig saves the tailmon.cfg file after every major change, and applies that to the script on the fly
 
 saveconfig()
@@ -604,7 +853,6 @@ saveconfig()
      echo 'logsize='$logsize
      echo 'amtmemailsuccess='$amtmemailsuccess
      echo 'amtmemailfailure='$amtmemailfailure
-     echo 'precmd="'"$precmd"'"'
      echo 'args="'"$args"'"'
      echo 'preargs="'"$preargs"'"'
      echo 'routes="'"$routes"'"'
@@ -776,6 +1024,18 @@ while true; do
     else
       keepalivedisp="No"
     fi
+    
+    if [ "$amtmemailsuccess" == "0" ] && [ "$amtmemailfailure" == "0" ]; then
+      amtmdisp="${CDkGray}Disabled        "
+    elif [ "$amtmemailsuccess" == "1" ] && [ "$amtmemailfailure" == "0" ]; then
+      amtmdisp="${CGreen}Success         "
+    elif [ "$amtmemailsuccess" == "0" ] && [ "$amtmemailfailure" == "1" ]; then
+      amtmdisp="${CGreen}Failure         "
+    elif [ "$amtmemailsuccess" == "1" ] && [ "$amtmemailfailure" == "1" ]; then
+      amtmdisp="${CGreen}Success, Failure"
+    else
+      amtmdisp="${CDkGray}Disabled        "
+    fi
   
     tzone=$(date +%Z)
     tzonechars=$(echo ${#tzone})
@@ -791,10 +1051,10 @@ while true; do
     printf "%-8s" $version
     echo -e "                           ${CWhite}Operations Menu ${InvDkGray}            $tzspaces$(date) ${CClear}"
     echo -e "${InvGreen} ${CClear} ${CGreen}(I)${CClear}nstall / ${CGreen}(X)${CClear}Uninstall Tailscale                   ${InvGreen} ${CClear} ${CGreen}(C)${CClear}onfiguration Menu / Main Setup Menu${CClear}"
-    echo -e "${InvGreen} ${CClear} ${CGreen}(S)${CClear}tart / S${CGreen}(T)${CClear}op Tailscale Service                   ${InvGreen} ${CClear} ${CGreen}(E)${CClear}dit PRECMD / ARGS / PREARGS${CClear}"
-    echo -e "${InvGreen} ${CClear} Tailscale Connection ${CGreen}(U)${CClear}p / ${CGreen}(D)${CClear}own                   ${InvGreen} ${CClear} Edit Ad${CGreen}(V)${CClear}ertised Routes${CClear}"
-    echo -e "${InvGreen} ${CClear}                                                      ${InvGreen} ${CClear} ${CGreen}(K)${CClear}eep Tailscale Service Alive: ${CGreen}$keepalivedisp${CClear}"
-    echo -e "${InvGreen} ${CClear} ${CGreen}(A)${CClear}MTM Email Notifications: $amtmdisp                         ${InvGreen} ${CClear} Ti${CGreen}(M)${CClear}er Check Loop Interval: ${CGreen}${timerloop}sec${CClear}"
+    echo -e "${InvGreen} ${CClear} ${CGreen}(S)${CClear}tart / S${CGreen}(T)${CClear}op Tailscale Service                   ${InvGreen} ${CClear} Edit ARGS / ${CGreen}(P)${CClear}REARGS Options${CClear}"
+    echo -e "${InvGreen} ${CClear} Tailscale Connection ${CGreen}(U)${CClear}p / ${CGreen}(D)${CClear}own                   ${InvGreen} ${CClear} ${CGreen}(L)${CClear}og Viewer / Trim Log Size (rows): ${CGreen}$logsize${CClear}"
+    echo -e "${InvGreen} ${CClear} Edit Ad${CGreen}(V)${CClear}ertised Routes                             ${InvGreen} ${CClear} ${CGreen}(K)${CClear}eep Tailscale Service Alive: ${CGreen}$keepalivedisp${CClear}"
+    echo -e "${InvGreen} ${CClear} ${CGreen}(A)${CClear}MTM Email Notifications: $amtmdisp         ${InvGreen} ${CClear} Ti${CGreen}(M)${CClear}er Check Loop Interval: ${CGreen}${timerloop}sec${CClear}"
     echo -e "${InvGreen} ${CClear}${CDkGray}--------------------------------------------------------------------------------------------------------------${CClear}"
     echo ""
     echo -e "${InvDkGray}Tailscale Service:                                                                                             ${CClear}"
@@ -806,7 +1066,6 @@ while true; do
     tailscale status
     echo ""
     echo -e "${InvDkGray}Tailscale Options:                                                                                             ${CClear}"
-    echo -e "${CWhite}PRECMD: ${CGreen}$precmd"
     echo -e "${CWhite}ARGS: ${CGreen}$args"
     echo -e "${CWhite}PREARGS: ${CGreen}$preargs"
     echo -e "${CWhite}ROUTES: ${CGreen}$routes"
