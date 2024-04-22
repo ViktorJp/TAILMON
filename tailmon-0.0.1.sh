@@ -15,6 +15,10 @@ timerloop=60
 logsize=2000
 amtmemailsuccess=0
 amtmemailfailure=0
+exitnode=0
+advroutes=1
+tsoperatingmode="Userspace"
+precmd=""
 args="--tun=userspace-networking --state=/opt/var/tailscaled.state"
 preargs="nohup"
 routes="192.168.50.0/24"
@@ -175,6 +179,7 @@ uninstallts () {
         echo -e "Uninstalling Tailscale Package(s)..."
         echo ""
         opkg remove tailscale
+        rm /opt/var/tailscaled.state
         echo ""
         read -rsp $'Press any key to continue...\n' -n1 key
       else
@@ -323,7 +328,7 @@ edittsoptions()
 
 while true; do
   clear
-  echo -e "${InvGreen} ${InvDkGray}${CWhite} Edit ARGS and PREARGS Options                                                         ${CClear}"
+  echo -e "${InvGreen} ${InvDkGray}${CWhite} Edit ARGS and PREARGS Options (userspace mode)                                        ${CClear}"
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} Please indicate what options you want in the Tailscale ARGS and PREARGS fields for${CClear}"
   echo -e "${InvGreen} ${CClear} the Tailscale S06Tailscaled service? It is recommended to leave these options as${CClear}"
@@ -381,6 +386,112 @@ done
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
+# operating mode lets the user choose between userspace and kernel modes of operation
+
+operatingmode()
+{
+
+while true; do
+  clear
+  echo -e "${InvGreen} ${InvDkGray}${CWhite} Operating Mode Configuration                                                          ${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} Tailscale has 2 modes of operation: 'Userspace' and 'Kernel' mode. By default, the${CClear}"
+  echo -e "${InvGreen} ${CClear} installer will configure Tailscale to operate in 'Userspace' mode, but in the end,${CClear}"
+  echo -e "${InvGreen} ${CClear} should not make much difference performance-wise based on the hardware available in${CClear}"
+  echo -e "${InvGreen} ${CClear} our routers. More info below:${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} In general, kernel mode (and thus only Linux, for now) should be used for heavily${CClear}"
+  echo -e "${InvGreen} ${CClear} used subnet routers, where 'heavy' is some combination of number of users, number${CClear}"
+  echo -e "${InvGreen} ${CClear} of flows, bandwidth. The userspace mode should be more than sufficient for smaller${CClear}"
+  echo -e "${InvGreen} ${CClear} numbers of users or low bandwidth. Even though Tailscale's userspace subnet routing${CClear}"
+  echo -e "${InvGreen} ${CClear} is not as optimized as the Linux kernel, it makes up for it slightly in being able${CClear}"
+  echo -e "${InvGreen} ${CClear} to avoid some context switches to the kernel.${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} (Default = Userspace Mode)${CClear}"
+  echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} Current: ${CGreen}$tsoperatingmode${CClear}"
+  echo ""
+  read -p "Please enter value (1=Userspace, 2=Kernel)? (e=Exit): " EnterOperatingMode
+  case $EnterOperatingMode in
+    1)
+      tsoperatingmode="Userspace"
+      precmd=""
+      args="--tun=userspace-networking --state=/opt/var/tailscaled.state"
+      preargs="nohup"
+      saveconfig
+      timer=$timerloop
+    ;;
+
+    2)
+      tsoperatingmode="Kernel"
+      precmd="modprobe tun"
+      args="--state=/opt/var/tailscaled.state"
+      preargs="nohup"
+      saveconfig
+      timer=$timerloop
+    ;;
+
+    *)
+      
+      if [ -f "/opt/bin/tailscale" ]; then
+        #make mods to the S06tailscaled service for Userspace mode
+        if [ "$tsoperatingmode" == "Userspace" ]; then
+        
+          sed -i "s/^ARGS=.*/ARGS=\"--tun=userspace-networking\ --state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
+          sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
+          sed -i -e '/^PRECMD=/d' "/opt/etc/init.d/S06tailscaled"
+          
+          #remove firewall-start entry if found
+          if [ -f /jffs/scripts/firewall-start ]; then
+
+            if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
+              sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
+            fi
+          
+          fi
+        
+        #make mods to the S06tailscaled service for Kernel mode
+        elif [ "$tsoperatingmode" == "Kernel" ]; then
+        
+          if ! grep -q -F "PRECMD=" /opt/etc/init.d/S06tailscaled; then
+            sed '5 i PRECMD=\"modprobe tun\"' /opt/etc/init.d/S06tailscaled > /opt/etc/init.d/S06tailscaled2
+            rm -f /opt/etc/init.d/S06tailscaled
+            mv /opt/etc/init.d/S06tailscaled2 /opt/etc/init.d/S06tailscaled
+            chmod 755 /opt/etc/init.d/S06tailscaled
+          fi
+          sed -i "s/^ARGS=.*/ARGS=\"--state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
+          sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
+        
+          #modify/create firewall-start
+          if [ -f /jffs/scripts/firewall-start ]; then
+
+            if ! grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
+              echo "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi # Added by TAILMON" >> /jffs/scripts/firewall-start
+            fi
+
+          else
+            echo "#!/bin/sh" > /jffs/scripts/firewall-start
+            echo "" >> /jffs/scripts/firewall-start
+            echo "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi # Added by TAILMON" >> /jffs/scripts/firewall-start
+            chmod 0755 /jffs/scripts/firewall-start
+          fi
+        
+        fi
+      fi
+      
+      echo ""
+      echo -e "${CClear}[Exiting]"
+      timer=$timerloop
+      break
+    ;;
+  esac
+
+done
+
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
 # vsetup provide a menu interface to allow for initial component installs, uninstall, etc.
 
 vsetup()
@@ -392,6 +503,10 @@ while true; do
   if [ ! -f $config ]; then # Write /jffs/addons/tailmon.d/tailmon.cfg
     saveconfig
   fi
+  
+  if [ -f "/opt/bin/tailscale" ]; then tsinstalleddisp="Installed"; else tsinstalleddisp="Not Installed"; fi
+  if [ $exitnode -eq 0 ]; then exitnodedisp="No"; elif [ $exitnode -eq 1 ]; then exitnodedisp="Yes"; fi
+  if [ $advroutes -eq 0 ]; then advroutesdisp="No"; elif [ $advroutes -eq 1 ]; then advroutesdisp="Yes ($routes)"; fi
 
   echo -e "${InvGreen} ${InvDkGray}${CWhite} TAILMON Main Setup and Configuration Menu                                             ${CClear}"
   echo -e "${InvGreen} ${CClear}"
@@ -399,18 +514,110 @@ while true; do
   echo -e "${InvGreen} ${CClear} actions in the management of the TAILMON script.${CClear}"
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo -e "${InvGreen} ${CClear}"
-  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(1)${CClear} : Custom configuration options for TAILMON${CClear}"
-  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(2)${CClear} : Force reinstall Entware dependencies${CClear}"
-  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(3)${CClear} : Check for latest updates${CClear}"
-  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(4)${CClear} : Uninstall TAILMON${CClear}"
+  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(1)${CClear} : Install Tailscale Entware Package(s)         : ${CGreen}$tsinstalleddisp${CClear}"
+  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(2)${CClear} : Uninstall Tailscale Entware Package(s)${CClear}"
+  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(3)${CClear} : Set Tailscale Operating Mode                 : ${CGreen}$tsoperatingmode${CClear}"
+  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(4)${CClear} : Configure this Router as Exit Node           : ${CGreen}$exitnodedisp${CClear}"
+  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(5)${CClear} : Advertise Routes on this router              : ${CGreen}$advroutesdisp${CClear}"
+  echo -e "${InvGreen} ${CClear}"  
+  echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+  echo -e "${InvGreen} ${CClear}"  
+  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(6)${CClear} : Custom configuration options for TAILMON${CClear}"
+  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(7)${CClear} : Force reinstall Entware dependencies${CClear}"
+  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(8)${CClear} : Check for latest updates${CClear}"
+  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(9)${CClear} : Uninstall TAILMON${CClear}"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} | ${CClear}"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(e)${CClear} : Exit${CClear}"
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo ""
-  read -p "Please select? (1-4, e=Exit): " SelectSlot
+  read -p "Please select? (1-9, e=Exit): " SelectSlot
     case $SelectSlot in
-      1) # Check for existence of entware, and if so proceed and install the timeout package, then run tailmon -config
+      1) installts;;
+      
+      2) uninstallts;;
+      
+      3) operatingmode;;
+      
+      4)
+        clear
+        if [ $exitnode -eq 0 ]; then exitnodedisp="No"; elif [ $exitnode -eq 1 ]; then exitnodedisp="Yes"; fi
+        	
+        echo -e "${InvGreen} ${InvDkGray}${CWhite} Configure Router as Exit Node                                                         ${CClear}"
+        echo -e "${InvGreen} ${CClear}"
+        echo -e "${InvGreen} ${CClear} A Tailscale Exit Node is a feature that lets you route all non-Tailscale internet"
+        echo -e "${InvGreen} ${CClear} traffic through a specific device on your Tailscale network (known as a tailnet)."
+        echo -e "${InvGreen} ${CClear} The device routing your traffic (this router) is called an 'exit node'. Please"
+        echo -e "${InvGreen} ${CClear} indicate below if you want to enable this feature"
+        echo -e "${InvGreen} ${CClear}"
+        echo -e "${InvGreen} ${CClear} (Default = No)"
+        echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+        echo -e "${InvGreen} ${CClear}"
+        echo -e "${InvGreen} ${CClear} Current: ${CGreen}$exitnodedisp${CClear}"
+        echo ""
+        echo -e "Configure Router as Exit Node?"
+        if promptyn "[y/n]: "
+          then
+            exitnode=1
+          else
+            exitnode=0
+        fi
+        saveconfig
+        timer=$timerloop
+      ;;
+      
+      5)
+        clear
+        if [ $advroutes -eq 0 ]; then advroutesdisp="No"; elif [ $advroutes -eq 1 ]; then advroutesdisp="Yes"; fi
+        	
+        echo -e "${InvGreen} ${InvDkGray}${CWhite} Advertise Routes on this Router                                                       ${CClear}"
+        echo -e "${InvGreen} ${CClear}"
+        echo -e "${InvGreen} ${CClear} Tailscale can act as a 'subnet router' that allow you to access multiple devices"
+        echo -e "${InvGreen} ${CClear} located on your particular subnet through Tailscale. Subnet routers act as a"
+        echo -e "${InvGreen} ${CClear} gateway, relaying traffic from your Tailscale network onto your physical subnet."
+        echo -e "${InvGreen} ${CClear} If you need access to other devices, such as NAS, routers, computers, printers,"
+        echo -e "${InvGreen} ${CClear} etc. without the need to install Tailscale software on them, it would be"
+        echo -e "${InvGreen} ${CClear} recommended to enable this feature.  Please indicate your choice below."
+        echo -e "${InvGreen} ${CClear}"
+        echo -e "${InvGreen} ${CClear} (Default = Yes)"
+        echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+        echo -e "${InvGreen} ${CClear}"
+        echo -e "${InvGreen} ${CClear} Current: ${CGreen}$advroutesdisp${CClear}"
+        echo -e "${InvGreen} ${CClear} ROUTE(S): ${CGreen}$routes${CClear}"
+        echo ""
+        echo -e "Advertise Routes?"
+        if promptyn "[y/n]: "
+          then
+            echo ""
+            echo ""
+            echo -e "${InvGreen} ${InvDkGray}${CWhite} Advertise Routes on this Router                                                       ${CClear}"
+            echo -e "${InvGreen} ${CClear}"
+            echo -e "${InvGreen} ${CClear} Please indicate what subnet you want to advertise to your Tailscale network."
+            echo -e "${InvGreen} ${CClear} Typically, you would enter the current subnet of what your router is currently"
+            echo -e "${InvGreen} ${CClear} configured for, ex: 192.168.50.0/24. Should you want to advertise multiple"
+            echo -e "${InvGreen} ${CClear} subnets that are accessible by your router, comma-delimit them in this way:"
+            echo -e "${InvGreen} ${CClear} 192.168.50.0/24,192.168.87.0/24,10.0.100.0/16"
+            echo -e "${InvGreen} ${CClear}"
+            echo -e "${InvGreen} ${CClear} (Default = 192.168.50.0/24)"
+            echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+            echo  ""
+            read -p "Please enter valid IP4 subnet range? (e=Exit): " routeinput
+            if [ "$routeinput" == "e" ]; then
+              echo -e "\n[Exiting]"; sleep 2
+            else 
+              advroutes=1
+              routes=$routeinput
+              saveconfig
+            fi
+          else
+            advroutes=0
+            routes=""
+            saveconfig
+        fi
+        timer=$timerloop
+      ;;
+
+      6) # Check for existence of entware, and if so proceed and install the timeout package, then run tailmon -config
         clear
         if [ -f "/opt/bin/timeout" ] && [ -f "/opt/sbin/screen" ]; then
           vconfig
@@ -477,7 +684,7 @@ while true; do
         fi
       ;;
 
-      2) # Force re-install the CoreUtils timeout/screen package
+      7) # Force re-install the CoreUtils timeout/screen package
         clear
         echo -e "${InvGreen} ${InvDkGray}${CWhite} Re-install Dependencies                                                               ${CClear}"
         echo -e "${InvGreen} ${CClear}"
@@ -530,8 +737,8 @@ while true; do
             fi
         fi
       ;;
-      3) vupdate;;
-      4) vuninstall;;
+      8) vupdate;;
+      9) vuninstall;;
       [Ee])
             echo ""
             timer=$timerloop
@@ -783,6 +990,7 @@ while true; do
             echo -e "Uninstalling Tailscale Package(s)..."
             echo ""
             opkg remove tailscale
+            rm -f /opt/var/tailscaled.state
             echo ""
             read -rsp $'Press any key to continue...\n' -n1 key
           else
@@ -853,6 +1061,10 @@ saveconfig()
      echo 'logsize='$logsize
      echo 'amtmemailsuccess='$amtmemailsuccess
      echo 'amtmemailfailure='$amtmemailfailure
+     echo 'tsoperatingmode="'"$tsoperatingmode"'"'
+     echo 'exitnode='$exitnode
+     echo 'advroutes='$advroutes
+     echo 'precmd="'"$precmd"'"'
      echo 'args="'"$args"'"'
      echo 'preargs="'"$preargs"'"'
      echo 'routes="'"$routes"'"'
@@ -1050,27 +1262,42 @@ while true; do
     echo -en "${InvGreen} ${InvDkGray} TAILMON - v"
     printf "%-8s" $version
     echo -e "                           ${CWhite}Operations Menu ${InvDkGray}            $tzspaces$(date) ${CClear}"
-    echo -e "${InvGreen} ${CClear} ${CGreen}(I)${CClear}nstall / ${CGreen}(X)${CClear}Uninstall Tailscale                   ${InvGreen} ${CClear} ${CGreen}(C)${CClear}onfiguration Menu / Main Setup Menu${CClear}"
-    echo -e "${InvGreen} ${CClear} ${CGreen}(S)${CClear}tart / S${CGreen}(T)${CClear}op Tailscale Service                   ${InvGreen} ${CClear} Edit ARGS / ${CGreen}(P)${CClear}REARGS Options${CClear}"
+    echo -e "${InvGreen} ${CClear} ${CGreen}(S)${CClear}tart / S${CGreen}(T)${CClear}op Tailscale Service                   ${InvGreen} ${CClear} ${CGreen}(C)${CClear}onfiguration Menu / Main Setup Menu${CClear}"
     echo -e "${InvGreen} ${CClear} Tailscale Connection ${CGreen}(U)${CClear}p / ${CGreen}(D)${CClear}own                   ${InvGreen} ${CClear} ${CGreen}(L)${CClear}og Viewer / Trim Log Size (rows): ${CGreen}$logsize${CClear}"
-    echo -e "${InvGreen} ${CClear} Edit Ad${CGreen}(V)${CClear}ertised Routes                             ${InvGreen} ${CClear} ${CGreen}(K)${CClear}eep Tailscale Service Alive: ${CGreen}$keepalivedisp${CClear}"
+    echo -e "${InvGreen} ${CClear} Custom Service/Commandline Options (TBD)             ${InvGreen} ${CClear} ${CGreen}(K)${CClear}eep Tailscale Service Alive: ${CGreen}$keepalivedisp${CClear}"
     echo -e "${InvGreen} ${CClear} ${CGreen}(A)${CClear}MTM Email Notifications: $amtmdisp         ${InvGreen} ${CClear} Ti${CGreen}(M)${CClear}er Check Loop Interval: ${CGreen}${timerloop}sec${CClear}"
     echo -e "${InvGreen} ${CClear}${CDkGray}--------------------------------------------------------------------------------------------------------------${CClear}"
     echo ""
-    echo -e "${InvDkGray}Tailscale Service:                                                                                             ${CClear}"
+    echo -e "${InvDkGray}${CWhite}Tailscale Service:                                                                                             ${CClear}"
     /opt/etc/init.d/S06tailscaled check
     tsservice=$?
     
     echo ""
-    echo -e "${InvDkGray}Tailscale Connection Status:                                                                                   ${CClear}"
+    echo -e "${InvDkGray}${CWhite}Tailscale Connection Status:                                                                                   ${CClear}"
     tailscale status
     echo ""
-    echo -e "${InvDkGray}Tailscale Options:                                                                                             ${CClear}"
-    echo -e "${CWhite}ARGS: ${CGreen}$args"
-    echo -e "${CWhite}PREARGS: ${CGreen}$preargs"
-    echo -e "${CWhite}ROUTES: ${CGreen}$routes"
+    
+    if [ "$tsoperatingmode" == "Userspace" ]; then
+      echo -e "${InvDkGray}${CWhite}Tailscale Service Options (Userspace Mode)                                                                     ${CClear}"
+      echo -e "${CWhite}ARGS: ${CGreen}$args"
+      echo -e "${CWhite}PREARGS: ${CGreen}$preargs"
+    elif [ "$tsoperatingmode" == "Kernel" ]; then
+      echo -e "${InvDkGray}${CWhite}Tailscale Service Options (Kernel Mode)                                                                        ${CClear}"
+      echo -e "${CWhite}PRECMD: ${CGreen}$precmd"
+      echo -e "${CWhite}ARGS: ${CGreen}$args"
+      echo -e "${CWhite}PREARGS: ${CGreen}$preargs"
+    fi
+    
+    echo ""
+    echo -e "${InvDkGray}${CWhite}Tailscale Connection Commandline                                                                               ${CClear}"
+    
+    if [ $exitnode -eq 1 ]; then exitnodecmd="--advertise-exit-node "; else exitnodecmd=""; fi
+    if [ $advroutes -eq 1 ]; then advroutescmd="--accept-routes --advertise-routes=$routes"; else advroutescmd=""; fi
+        
+    echo -e "${CWhite}${CGreen}$exitnodecmd$advroutescmd${CClear}"
     echo ""
     #read -rsp $'Press any key to continue...\n' -n1 key
+  
   else
     echo -e "Tailscale is not installed"
     tsinstalled=0
@@ -1086,17 +1313,9 @@ while true; do
       echo ""
       /opt/etc/init.d/S06tailscaled start
       echo ""
-      
-      if [ -z $routes ]; then
-        echo "Executing: tailscale up"
-        echo ""
-        tailscale up
-      else
-        echo "Executing: tailscale up --accept-routes --advertise-routes=$routes"
-        echo ""
-        tailscale up --accept-routes --advertise-routes=$routes
-      fi
-
+      echo "Executing: tailscale up $exitnodecmd$advroutescmd"
+      echo ""
+      tailscale up $exitnodecmd $advroutescmd
       sleep 3
       resettimer=1
     fi
