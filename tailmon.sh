@@ -4,7 +4,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="0.0.1"
+version="0.0.2"
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
 dlverpath="/jffs/addons/tailmon.d/version.txt"                       # Static path to the version file
@@ -237,17 +237,15 @@ tsup () {
       printf "${CGreen}\r[Activating Tailscale Connection]"
       sleep 3
       printf "\33[2K\r"
+      
+      if [ $exitnode -eq 1 ]; then exitnodecmd="--advertise-exit-node "; else exitnodecmd=""; fi
+      if [ $advroutes -eq 1 ]; then advroutescmd="--advertise-routes=$routes"; else advroutescmd=""; fi
+
       echo -e "${CGreen}Messages:${CClear}"
       echo ""
-       if [ -z $routes ]; then
-        echo "Executing: tailscale up"
-        echo ""
-        tailscale up
-      else
-        echo "Executing: tailscale up --accept-routes --advertise-routes=$routes"
-        echo ""
-        tailscale up --accept-routes --advertise-routes=$routes
-      fi
+      echo "Executing: tailscale up $exitnodecmd$advroutescmd"
+      echo ""
+      tailscale up $exitnodecmd $advroutescmd
       sleep 3
       resettimer=1
 }
@@ -1292,7 +1290,7 @@ while true; do
     echo -e "${InvDkGray}${CWhite}Tailscale Connection Commandline                                                                               ${CClear}"
     
     if [ $exitnode -eq 1 ]; then exitnodecmd="--advertise-exit-node "; else exitnodecmd=""; fi
-    if [ $advroutes -eq 1 ]; then advroutescmd="--accept-routes --advertise-routes=$routes"; else advroutescmd=""; fi
+    if [ $advroutes -eq 1 ]; then advroutescmd="--advertise-routes=$routes"; else advroutescmd=""; fi
         
     echo -e "${CWhite}${CGreen}$exitnodecmd$advroutescmd${CClear}"
     echo ""
