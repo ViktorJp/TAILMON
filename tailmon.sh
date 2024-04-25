@@ -101,7 +101,7 @@ progressbaroverride()
       case $key_press in
           [Cc]) vsetup;;
           [Dd]) tsdown;;
-          [Ee]) logoNMexit; echo -e "${CClear}\n"; exit 0;;
+          [Ee]) echo -e "${CClear}\n"; exit 0;;
           [Ii]) installts;;
           [Kk]) vconfig;;
           [Ll]) vlogs;;
