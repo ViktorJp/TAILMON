@@ -4,7 +4,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="0.0.3"
+version="0.0.4"
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
 dlverpath="/jffs/addons/tailmon.d/version.txt"                       # Static path to the version file
@@ -118,6 +118,49 @@ progressbaroverride()
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
+# Initial setup menu
+
+initialsetup () {
+
+    clear
+    echo -e "${InvGreen} ${InvDkGray}${CWhite} TAILMON Initial Setup                                                                 ${CClear}"
+    echo -e "${InvGreen} ${CClear}"
+    echo -e "${InvGreen} ${CClear} TAILMON has not been configured yet, and Tailscale will need to be installed and${CClear}"
+    echo -e "${InvGreen} ${CClear} configured. You can choose between 'Express Install' and 'Advanced Install'.${CClear}"
+    echo -e "${InvGreen} ${CClear}"
+    echo -e "${InvGreen} ${CClear} 1) Express Install will automatically download and install Tailscale, choosing the${CClear}"
+    echo -e "${InvGreen} ${CClear} 'Userspace' mode of operation and configures it to advertise routes of your local${CClear}"
+    echo -e "${InvGreen} ${CClear} subnet by default. A URL prompt will appear which will require you to copy this link"
+    echo -e "${InvGreen} ${CClear} into your browser to connect this device to your tailnet."
+    echo -e "${InvGreen} ${CClear}"
+    echo -e "${InvGreen} ${CClear} 2) Advanced Install will launch the TAILMON Setup/Configuration Menu, and allows${CClear}"
+    echo -e "${InvGreen} ${CClear} you to manually choose your preferred settings, such as 'Kernel' vs. 'Userspace'${CClear}"
+    echo -e "${InvGreen} ${CClear} mode, and letting you pick the exit node option along with additional subnets."
+    echo -e "${InvGreen} ${CClear}"    
+    echo -e "${InvGreen} ${CClear} Before starting, please familiarize yourself with how Tailscale works. Please use${CClear}"
+    echo -e "${InvGreen} ${CClear} @ColinTaylor's Wiki available here:${CClear}"
+    echo -e "${InvGreen} ${CClear} https://github.com/RMerl/asuswrt-merlin.ng/wiki/Installing-Tailscale-through-Entware${CClear}"
+    echo -e "${InvGreen} ${CClear}"
+    echo -e "${InvGreen} ${CClear} It is also advised to have an account set and ready to go on https://tailscale.com${CClear}"
+    echo -e "${InvGreen} ${CClear}"
+    echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+    echo ""
+    read -p "Please select? (1=Express Install, 2=Advanced Install, e=Exit): " SelectSetup
+      case $SelectSetup in
+        1) 
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON Express Install initiated." >> $logfile
+        expressinstall;;
+        
+        2)
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON Advanced Install initiated." >> $logfile
+        exec sh /jffs/scripts/tailmon.sh -setup;;
+        
+        [Ee]) echo -e "${CClear}"; echo ""; exit 0;;
+      esac
+
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
 # Expressinstall script
 
 expressinstall () {
@@ -136,10 +179,12 @@ expressinstall () {
         echo ""
         opkg install tailscale
         echo ""
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Entware package installed." >> $logfile
       else
         clear
         echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
         echo -e "Please install Entware using the AMTM utility before proceeding..."
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Entware was not found installed on router. Please investigate." >> $logfile
         echo ""
         read -rsp $'Press any key to continue...\n' -n1 key
         exit 1
@@ -169,6 +214,7 @@ expressinstall () {
       sed -i "s/^ARGS=.*/ARGS=\"--tun=userspace-networking\ --state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
       sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
       sed -i -e '/^PRECMD=/d' "/opt/etc/init.d/S06tailscaled"
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Userspace Mode settings have been applied." >> $logfile
       
       #remove firewall-start entry if found
       if [ -f /jffs/scripts/firewall-start ]; then
@@ -181,7 +227,8 @@ expressinstall () {
     fi
   else
     echo ""
-    echo -e "${CRed}ERROR: Tailscale binary was not found. Please check Entware and router/drive for errors.${CClear}" 
+    echo -e "${CRed}ERROR: Tailscale binary was not found. Please check Entware and router/drive for errors.${CClear}"
+    echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale binaries not found on router. Please investigate." >> $logfile
     exit 1
   fi
   
@@ -189,6 +236,7 @@ expressinstall () {
   echo -e "${CGreen}Starting Tailscale service...${CClear}"
   echo ""
   /opt/etc/init.d/S06tailscaled start
+  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service started." >> $logfile
   
   echo ""
   echo ""
@@ -202,6 +250,7 @@ expressinstall () {
   echo -e "${CGreen}Executing: tailscale up $advroutescmd${CClear}"
   echo ""
   tailscale up $advroutescmd
+  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection started." >> $logfile
 
   echo ""
   echo ""
@@ -209,7 +258,7 @@ expressinstall () {
   echo ""
   read -rsp $'Press any key to continue...\n' -n1 key
   
-  exec sh /jffs/scripts/tailmon.sh
+  exec sh /jffs/scripts/tailmon.sh -noswitch
   echo -e "${CClear}"
   exit 0
 }
@@ -238,12 +287,14 @@ installts () {
         echo -e "Installing Tailscale Package(s)..."
         echo ""
         opkg install tailscale
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Entware package installed." >> $logfile
         echo ""
         read -rsp $'Press any key to continue...\n' -n1 key
       else
         clear
         echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
         echo -e "Please install Entware using the AMTM utility before proceeding..."
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Entware was not found on router. Please investigate." >> $logfile
         echo ""
         read -rsp $'Press any key to continue...\n' -n1 key
         exit 1
@@ -272,13 +323,16 @@ uninstallts () {
         echo -e "\nShutting down Tailscale..."
         tailscale logout
         tailscale down
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection shut down and logged out." >> $logfile
         /opt/etc/init.d/S06tailscaled stop
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service shut down." >> $logfile
         echo ""
         echo -e "\nRemoving firewall-start entries..."
         #remove firewall-start entry if found
         if [ -f /jffs/scripts/firewall-start ]; then
           if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
             sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
+            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: firewall-start entries removed." >> $logfile
           fi
         fi
         echo ""
@@ -289,14 +343,17 @@ uninstallts () {
         echo -e "Uninstalling Entware Tailscale Package(s)..."
         echo ""
         opkg remove tailscale
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Entware package removed." >> $logfile
         rm -f /opt/var/tailscaled.state
         rm -r /opt/var/tailscale
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale files and folders removed." >> $logfile
         echo ""
         read -rsp $'Press any key to continue...\n' -n1 key
       else
         clear
         echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
         echo -e "Please install Entware using the AMTM utility before proceeding..."
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Entware not found on router. Please investigate." >> $logfile
         echo ""
         read -rsp $'Press any key to continue...\n' -n1 key
         exit 1
@@ -317,6 +374,7 @@ startts () {
       echo -e "${CGreen}Messages:"
       echo ""
       /opt/etc/init.d/S06tailscaled start
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service started." >> $logfile
       echo ""
       sleep 3
       resettimer=1
@@ -334,6 +392,7 @@ stopts () {
       echo -e "${CGreen}Messages:"
       echo ""
       /opt/etc/init.d/S06tailscaled stop
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service stopped." >> $logfile
       echo ""
       sleep 3
       resettimer=1
@@ -357,6 +416,7 @@ tsup () {
       echo "Executing: tailscale up $exitnodecmd$advroutescmd"
       echo ""
       tailscale up $exitnodecmd$advroutescmd
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection started." >> $logfile
       sleep 3
       resettimer=1
 }
@@ -375,6 +435,7 @@ tsdown () {
       echo "Executing: tailscale down"
       echo ""
       tailscale down
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection stopped." >> $logfile
       sleep 3
       resettimer=1
 }
@@ -556,9 +617,11 @@ while true; do
 
             if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
               sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
+              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: firewall-start entries removed." >> $logfile
             fi
           
           fi
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Userspace Mode settings have been applied." >> $logfile
         
         #make mods to the S06tailscaled service for Kernel mode
         elif [ "$tsoperatingmode" == "Kernel" ]; then
@@ -577,6 +640,7 @@ while true; do
 
             if ! grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
               echo "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi # Added by TAILMON" >> /jffs/scripts/firewall-start
+              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: firewall-start entries created." >> $logfile
             fi
 
           else
@@ -585,7 +649,7 @@ while true; do
             echo "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi # Added by TAILMON" >> /jffs/scripts/firewall-start
             chmod 0755 /jffs/scripts/firewall-start
           fi
-        
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Kernel Mode settings have been applied." >> $logfile
         fi
       fi
       
@@ -625,8 +689,10 @@ exitnodets()
   if promptyn "[y/n]: "
     then
       exitnode=1
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Device has been configured as Exit Node." >> $logfile
     else
       exitnode=0
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Exit Node configuration has been disabled." >> $logfile
   fi
   saveconfig
   timer=$timerloop
@@ -679,11 +745,13 @@ advroutests()
         advroutes=1
         routes=$routeinput
         saveconfig
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Advertised routes enabled." >> $logfile
       fi
     else
       advroutes=0
       routes=""
       saveconfig
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Advertised routes disabled." >> $logfile
   fi
   timer=$timerloop
   
@@ -786,6 +854,7 @@ while true; do
                 opkg install screen
                 echo ""
                 echo -e "Install completed..."
+                echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Entware dependencies installed." >> $logfile
                 echo ""
                 read -rsp $'Press any key to continue...\n' -n1 key
                 echo ""
@@ -796,6 +865,7 @@ while true; do
                 clear
                 echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
                 echo -e "Please install Entware using the AMTM utility before proceeding..."
+                echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Entware was not found installed on router. Please investigate." >> $logfile
                 echo ""
                 read -rsp $'Press any key to continue...\n' -n1 key
               fi
@@ -850,12 +920,14 @@ while true; do
               opkg install --force-reinstall screen
               echo ""
               echo -e "Re-install completed..."
+              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Entware dependencies re-installed." >> $logfile
               echo ""
               read -rsp $'Press any key to continue...\n' -n1 key
             else
               clear
               echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
               echo -e "Please install Entware using the AMTM utility before proceeding..."
+              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Entware was not found installed on router. Please investigate." >> $logfile
               echo ""
               read -rsp $'Press any key to continue...\n' -n1 key
             fi
@@ -882,35 +954,7 @@ vconfig()
 if [ -f $config ]; then
   source $config
 else
-  clear
-    echo -e "${InvGreen} ${InvDkGray}${CWhite} TAILMON Initial Setup                                                                 ${CClear}"
-    echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear} TAILMON has not been configured yet, and Tailscale will need to be installed and${CClear}"
-    echo -e "${InvGreen} ${CClear} configured. You can choose between 'Express Install' and 'Advanced Install'.${CClear}"
-    echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear} 1) Express Install will automatically download and install Tailscale, choosing the${CClear}"
-    echo -e "${InvGreen} ${CClear} 'Userspace' mode of operation and configures it to advertise routes of your local${CClear}"
-    echo -e "${InvGreen} ${CClear} subnet by default. A URL prompt will appear which will require you to copy this link"
-    echo -e "${InvGreen} ${CClear} into your browser to connect this device to your tailnet."
-    echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear} 2) Advanced Install will launch the TAILMON Setup/Configuration Menu, and allows${CClear}"
-    echo -e "${InvGreen} ${CClear} you to manually choose your preferred settings, such as 'Kernel' vs. 'Userspace'${CClear}"
-    echo -e "${InvGreen} ${CClear} mode, and letting you pick the exit node option along with additional subnets."
-    echo -e "${InvGreen} ${CClear}"    
-    echo -e "${InvGreen} ${CClear} Before starting, please familiarize yourself with how Tailscale works. Please use${CClear}"
-    echo -e "${InvGreen} ${CClear} @ColinTaylor's Wiki available here:${CClear}"
-    echo -e "${InvGreen} ${CClear} https://github.com/RMerl/asuswrt-merlin.ng/wiki/Installing-Tailscale-through-Entware${CClear}"
-    echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear} It is also advised to have an account set and ready to go on https://tailscale.com${CClear}"
-    echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
-    echo ""
-  read -p "Please select? (1=Express Install, 2=Advanced Install, e=Exit): " SelectSetup
-    case $SelectSetup in
-      1) expressinstall;;
-      2) exec sh /jffs/scripts/tailmon.sh -setup;;
-   [Ee]) echo -e "${CClear}"; echo ""; exit 0;;
-    esac
+  initialsetup
 fi 
 
 while true; do
@@ -968,8 +1012,10 @@ while true; do
         if promptyn "[y/n]: "
           then
             keepalive=1
+            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON keepalive enabled." >> $logfile
           else
             keepalive=0
+            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON keepalive disabled." >> $logfile
         fi
         saveconfig
       ;;
@@ -997,6 +1043,7 @@ while true; do
           elif [ $NEWLOGSIZE -ge 0 ] && [ $NEWLOGSIZE -le 9999 ]; then
             logsize=$NEWLOGSIZE
             saveconfig
+            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Event log size configured for $logsize rows." >> $logfile
           else
             logsize=2000
             saveconfig
@@ -1041,6 +1088,7 @@ while true; do
         curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
         echo ""
         echo -e "Download successful!${CClear}"
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON update successfully downloaded and installed." >> $logfile
         echo ""
         read -rsp $'Press any key to restart TAILMON...\n' -n1 key
         exec /jffs/scripts/tailmon.sh -setup
@@ -1059,6 +1107,7 @@ while true; do
         curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
         echo ""
         echo -e "Download successful!${CClear}"
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON update successfully downloaded and installed." >> $logfile
         echo ""
         read -rsp $'Press any key to restart TAILMON...\n' -n1 key
         exec /jffs/scripts/tailmon.sh -setup
@@ -1095,6 +1144,7 @@ updatecheck()
         DLversionPF=$(printf "%-8s" $DLversion)
         versionPF=$(printf "%-8s" $version)
         UpdateNotify="${InvYellow} ${InvDkGray}${CWhite} Update available: v$versionPF -> v$DLversionPF                                                                     ${CClear}"
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: New TAILMON v$DLversion available for download/install." >> $logfile
       else
         UpdateNotify=0
       fi
@@ -1235,7 +1285,7 @@ saveconfig()
      echo 'preargs="'"$preargs"'"'
      echo 'routes="'"$routes"'"'
    } > $config
-
+   echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON config has been updated." >> $logfile
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -1357,9 +1407,7 @@ if [ "$1" == "-noswitch" ]
     clear #last switch before the main program starts
 
     if [ ! -f $cfgpath ] && [ ! -f "/opt/bin/timeout" ] && [ ! -f "/opt/sbin/screen" ]; then
-      echo -e "${CRed}ERROR: TAILMON is not configured.  Please run 'tailmon -setup' first.${CClear}"
-      echo ""
-      exit 0
+      initialsetup
     fi
 fi
 
@@ -1386,35 +1434,7 @@ while true; do
   if [ -f $config ]; then
     source $config
   else
-    clear
-    echo -e "${InvGreen} ${InvDkGray}${CWhite} TAILMON Initial Setup                                                                 ${CClear}"
-    echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear} TAILMON has not been configured yet, and Tailscale will need to be installed and${CClear}"
-    echo -e "${InvGreen} ${CClear} configured. You can choose between 'Express Install' and 'Advanced Install'.${CClear}"
-    echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear} 1) Express Install will automatically download and install Tailscale, choosing the${CClear}"
-    echo -e "${InvGreen} ${CClear} 'Userspace' mode of operation and configures it to advertise routes of your local${CClear}"
-    echo -e "${InvGreen} ${CClear} subnet by default. A URL prompt will appear which will require you to copy this link"
-    echo -e "${InvGreen} ${CClear} into your browser to connect this device to your tailnet."
-    echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear} 2) Advanced Install will launch the TAILMON Setup/Configuration Menu, and allows${CClear}"
-    echo -e "${InvGreen} ${CClear} you to manually choose your preferred settings, such as 'Kernel' vs. 'Userspace'${CClear}"
-    echo -e "${InvGreen} ${CClear} mode, and letting you pick the exit node option along with additional subnets."
-    echo -e "${InvGreen} ${CClear}"    
-    echo -e "${InvGreen} ${CClear} Before starting, please familiarize yourself with how Tailscale works. Please use${CClear}"
-    echo -e "${InvGreen} ${CClear} @ColinTaylor's Wiki available here:${CClear}"
-    echo -e "${InvGreen} ${CClear} https://github.com/RMerl/asuswrt-merlin.ng/wiki/Installing-Tailscale-through-Entware${CClear}"
-    echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear} It is also advised to have an account set and ready to go on https://tailscale.com${CClear}"
-    echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
-    echo ""
-    read -p "Please select? (1=Express Install, 2=Advanced Install, e=Exit): " SelectSetup
-      case $SelectSetup in
-        1) expressinstall;;
-        2) exec sh /jffs/scripts/tailmon.sh -setup;;
-     [Ee]) echo -e "${CClear}"; echo ""; exit 0;;
-      esac
+    initialsetup
   fi 
   
   if [ -f "/opt/bin/tailscale" ]; then
@@ -1490,22 +1510,26 @@ while true; do
   
   else
     echo -e "Tailscale is not installed"
+    echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale binaries not found. Please investigate." >> $logfile
     tsinstalled=0
   fi
   
   if [ $tsinstalled -eq 1 ] && [ $keepalive -eq 1 ]; then
-    if [ $tsservice -gt 0 ]; then
+    if [ $tsservice -ne 0 ]; then
       printf "\33[2K\r"
       printf "${CGreen}\r[Tailscale Service appears dead]"
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale Service appears dead." >> $logfile
       sleep 3
       printf "\33[2K\r"
       echo -e "${CGreen}Messages:"
       echo ""
       /opt/etc/init.d/S06tailscaled start
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service started." >> $logfile
       echo ""
       echo "Executing: tailscale up $exitnodecmd$advroutescmd"
       echo ""
       tailscale up $exitnodecmd$advroutescmd
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection started." >> $logfile
       sleep 3
       resettimer=1
     fi
