@@ -4,7 +4,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="0.0.2"
+version="0.0.3"
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
 dlverpath="/jffs/addons/tailmon.d/version.txt"                       # Static path to the version file
@@ -21,7 +21,7 @@ tsoperatingmode="Userspace"
 precmd=""
 args="--tun=userspace-networking --state=/opt/var/tailscaled.state"
 preargs="nohup"
-routes="192.168.50.0/24"
+routes="$(nvram get lan_ipaddr | cut -d"." -f1-3).0/24"
 
 # Color variables
 CBlack="\e[1;30m"
@@ -118,6 +118,103 @@ progressbaroverride()
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
+# Expressinstall script
+
+expressinstall () {
+
+  echo ""
+  echo -e "Ready to Express Install Tailscale?"
+  if promptyn "[y/n]: "
+    then
+      if [ -d "/opt" ]; then # Does entware exist? If yes proceed, if no error out.
+        echo ""
+        echo -e "\n${CGreen}Updating Entware Packages...${CClear}"
+        echo ""
+        opkg update
+        echo ""
+        echo -e "${CGreen}Installing Tailscale Package(s)...${CClear}"
+        echo ""
+        opkg install tailscale
+        echo ""
+      else
+        clear
+        echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
+        echo -e "Please install Entware using the AMTM utility before proceeding..."
+        echo ""
+        read -rsp $'Press any key to continue...\n' -n1 key
+        exit 1
+      fi
+    else
+      echo ""
+      echo -e "${CClear}"
+      exit 0
+  fi
+  
+  echo ""
+  echo -e "${CGreen}Applying settings for Userspace mode of operation...${CClear}"
+    
+    tsoperatingmode="Userspace"
+    precmd=""
+    args="--tun=userspace-networking --state=/opt/var/tailscaled.state"
+    preargs="nohup"
+    saveconfig
+    
+  echo ""
+  echo -e "${CGreen}Applying settings to Tailscale service and connection...${CClear}"
+
+  if [ -f "/opt/bin/tailscale" ]; then
+    #make mods to the S06tailscaled service for Userspace mode
+    if [ "$tsoperatingmode" == "Userspace" ]; then
+    
+      sed -i "s/^ARGS=.*/ARGS=\"--tun=userspace-networking\ --state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
+      sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
+      sed -i -e '/^PRECMD=/d' "/opt/etc/init.d/S06tailscaled"
+      
+      #remove firewall-start entry if found
+      if [ -f /jffs/scripts/firewall-start ]; then
+
+        if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
+          sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
+        fi
+      
+      fi
+    fi
+  else
+    echo ""
+    echo -e "${CRed}ERROR: Tailscale binary was not found. Please check Entware and router/drive for errors.${CClear}" 
+    exit 1
+  fi
+  
+  echo ""
+  echo -e "${CGreen}Starting Tailscale service...${CClear}"
+  echo ""
+  /opt/etc/init.d/S06tailscaled start
+  
+  echo ""
+  echo ""
+  echo -e "${CGreen}Starting Tailscale connection...${CClear}"
+  echo ""
+  echo -e "${CGreen}Please be prepared to copy and paste the link below into your browser, and connect this device"
+  echo -e "to your tailnet (Tailscale Network)${CClear}"
+  echo ""
+  
+  advroutescmd="--advertise-routes=$routes"
+  echo -e "${CGreen}Executing: tailscale up $advroutescmd${CClear}"
+  echo ""
+  tailscale up $advroutescmd
+
+  echo ""
+  echo ""
+  echo -e "${CGreen}Express Install Completed Successfully!${CClear}"
+  echo ""
+  read -rsp $'Press any key to continue...\n' -n1 key
+  
+  exec sh /jffs/scripts/tailmon.sh
+  echo -e "${CClear}"
+  exit 0
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
 # Install script
 
 installts () {
@@ -172,14 +269,28 @@ uninstallts () {
     then
       if [ -d "/opt" ]; then # Does entware exist? If yes proceed, if no error out.
         echo ""
+        echo -e "\nShutting down Tailscale..."
+        tailscale logout
+        tailscale down
+        /opt/etc/init.d/S06tailscaled stop
+        echo ""
+        echo -e "\nRemoving firewall-start entries..."
+        #remove firewall-start entry if found
+        if [ -f /jffs/scripts/firewall-start ]; then
+          if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
+            sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
+          fi
+        fi
+        echo ""
         echo -e "\nUpdating Entware Packages..."
         echo ""
         opkg update
         echo ""
-        echo -e "Uninstalling Tailscale Package(s)..."
+        echo -e "Uninstalling Entware Tailscale Package(s)..."
         echo ""
         opkg remove tailscale
-        rm /opt/var/tailscaled.state
+        rm -f /opt/var/tailscaled.state
+        rm -r /opt/var/tailscale
         echo ""
         read -rsp $'Press any key to continue...\n' -n1 key
       else
@@ -245,7 +356,7 @@ tsup () {
       echo ""
       echo "Executing: tailscale up $exitnodecmd$advroutescmd"
       echo ""
-      tailscale up $exitnodecmd $advroutescmd
+      tailscale up $exitnodecmd$advroutescmd
       sleep 3
       resettimer=1
 }
@@ -490,6 +601,95 @@ done
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
+# exitnodets provide a menu interface to allow for selection of router becoming an exitnode
+
+exitnodets()
+{
+	
+  clear
+  if [ $exitnode -eq 0 ]; then exitnodedisp="No"; elif [ $exitnode -eq 1 ]; then exitnodedisp="Yes"; fi
+  	
+  echo -e "${InvGreen} ${InvDkGray}${CWhite} Configure Router as Exit Node                                                         ${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} A Tailscale Exit Node is a feature that lets you route all non-Tailscale internet"
+  echo -e "${InvGreen} ${CClear} traffic through a specific device on your Tailscale network (known as a tailnet)."
+  echo -e "${InvGreen} ${CClear} The device routing your traffic (this router) is called an 'exit node'. Please"
+  echo -e "${InvGreen} ${CClear} indicate below if you want to enable this feature"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} (Default = No)"
+  echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} Current: ${CGreen}$exitnodedisp${CClear}"
+  echo ""
+  echo -e "Configure Router as Exit Node?"
+  if promptyn "[y/n]: "
+    then
+      exitnode=1
+    else
+      exitnode=0
+  fi
+  saveconfig
+  timer=$timerloop
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# advroutests provide a menu interface to allow for entry of advertised routes
+
+advroutests()
+{
+	
+  clear
+  if [ $advroutes -eq 0 ]; then advroutesdisp="No"; elif [ $advroutes -eq 1 ]; then advroutesdisp="Yes"; fi
+  	
+  echo -e "${InvGreen} ${InvDkGray}${CWhite} Advertise Routes on this Router                                                       ${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} Tailscale can act as a 'subnet router' that allow you to access multiple devices"
+  echo -e "${InvGreen} ${CClear} located on your particular subnet through Tailscale. Subnet routers act as a"
+  echo -e "${InvGreen} ${CClear} gateway, relaying traffic from your Tailscale network onto your physical subnet."
+  echo -e "${InvGreen} ${CClear} If you need access to other devices, such as NAS, routers, computers, printers,"
+  echo -e "${InvGreen} ${CClear} etc. without the need to install Tailscale software on them, it would be"
+  echo -e "${InvGreen} ${CClear} recommended to enable this feature.  Please indicate your choice below."
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} (Default = Yes)"
+  echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} Current: ${CGreen}$advroutesdisp${CClear}"
+  echo -e "${InvGreen} ${CClear} ROUTE(S): ${CGreen}$routes${CClear}"
+  echo ""
+  echo -e "Advertise Routes?"
+  if promptyn "[y/n]: "
+    then
+      echo ""
+      echo ""
+      echo -e "${InvGreen} ${InvDkGray}${CWhite} Advertise Routes on this Router                                                       ${CClear}"
+      echo -e "${InvGreen} ${CClear}"
+      echo -e "${InvGreen} ${CClear} Please indicate what subnet you want to advertise to your Tailscale network."
+      echo -e "${InvGreen} ${CClear} Typically, you would enter the current subnet of what your router is currently"
+      echo -e "${InvGreen} ${CClear} configured for, ex: 192.168.50.0/24. Should you want to advertise multiple"
+      echo -e "${InvGreen} ${CClear} subnets that are accessible by your router, comma-delimit them in this way:"
+      echo -e "${InvGreen} ${CClear} 192.168.50.0/24,192.168.87.0/24,10.0.100.0/16"
+      echo -e "${InvGreen} ${CClear}"
+      echo -en "${InvGreen} ${CClear} (Default = "; echo -e "$(nvram get lan_ipaddr | cut -d"." -f1-3).0/24)"
+      echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+      echo  ""
+      read -p "Please enter valid IP4 subnet range? (e=Exit): " routeinput
+      if [ "$routeinput" == "e" ]; then
+        echo -e "\n[Exiting]"; sleep 2
+      else 
+        advroutes=1
+        routes=$routeinput
+        saveconfig
+      fi
+    else
+      advroutes=0
+      routes=""
+      saveconfig
+  fi
+  timer=$timerloop
+  
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
 # vsetup provide a menu interface to allow for initial component installs, uninstall, etc.
 
 vsetup()
@@ -537,83 +737,9 @@ while true; do
       
       3) operatingmode;;
       
-      4)
-        clear
-        if [ $exitnode -eq 0 ]; then exitnodedisp="No"; elif [ $exitnode -eq 1 ]; then exitnodedisp="Yes"; fi
-        	
-        echo -e "${InvGreen} ${InvDkGray}${CWhite} Configure Router as Exit Node                                                         ${CClear}"
-        echo -e "${InvGreen} ${CClear}"
-        echo -e "${InvGreen} ${CClear} A Tailscale Exit Node is a feature that lets you route all non-Tailscale internet"
-        echo -e "${InvGreen} ${CClear} traffic through a specific device on your Tailscale network (known as a tailnet)."
-        echo -e "${InvGreen} ${CClear} The device routing your traffic (this router) is called an 'exit node'. Please"
-        echo -e "${InvGreen} ${CClear} indicate below if you want to enable this feature"
-        echo -e "${InvGreen} ${CClear}"
-        echo -e "${InvGreen} ${CClear} (Default = No)"
-        echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
-        echo -e "${InvGreen} ${CClear}"
-        echo -e "${InvGreen} ${CClear} Current: ${CGreen}$exitnodedisp${CClear}"
-        echo ""
-        echo -e "Configure Router as Exit Node?"
-        if promptyn "[y/n]: "
-          then
-            exitnode=1
-          else
-            exitnode=0
-        fi
-        saveconfig
-        timer=$timerloop
-      ;;
+      4) exitnodets;;
       
-      5)
-        clear
-        if [ $advroutes -eq 0 ]; then advroutesdisp="No"; elif [ $advroutes -eq 1 ]; then advroutesdisp="Yes"; fi
-        	
-        echo -e "${InvGreen} ${InvDkGray}${CWhite} Advertise Routes on this Router                                                       ${CClear}"
-        echo -e "${InvGreen} ${CClear}"
-        echo -e "${InvGreen} ${CClear} Tailscale can act as a 'subnet router' that allow you to access multiple devices"
-        echo -e "${InvGreen} ${CClear} located on your particular subnet through Tailscale. Subnet routers act as a"
-        echo -e "${InvGreen} ${CClear} gateway, relaying traffic from your Tailscale network onto your physical subnet."
-        echo -e "${InvGreen} ${CClear} If you need access to other devices, such as NAS, routers, computers, printers,"
-        echo -e "${InvGreen} ${CClear} etc. without the need to install Tailscale software on them, it would be"
-        echo -e "${InvGreen} ${CClear} recommended to enable this feature.  Please indicate your choice below."
-        echo -e "${InvGreen} ${CClear}"
-        echo -e "${InvGreen} ${CClear} (Default = Yes)"
-        echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
-        echo -e "${InvGreen} ${CClear}"
-        echo -e "${InvGreen} ${CClear} Current: ${CGreen}$advroutesdisp${CClear}"
-        echo -e "${InvGreen} ${CClear} ROUTE(S): ${CGreen}$routes${CClear}"
-        echo ""
-        echo -e "Advertise Routes?"
-        if promptyn "[y/n]: "
-          then
-            echo ""
-            echo ""
-            echo -e "${InvGreen} ${InvDkGray}${CWhite} Advertise Routes on this Router                                                       ${CClear}"
-            echo -e "${InvGreen} ${CClear}"
-            echo -e "${InvGreen} ${CClear} Please indicate what subnet you want to advertise to your Tailscale network."
-            echo -e "${InvGreen} ${CClear} Typically, you would enter the current subnet of what your router is currently"
-            echo -e "${InvGreen} ${CClear} configured for, ex: 192.168.50.0/24. Should you want to advertise multiple"
-            echo -e "${InvGreen} ${CClear} subnets that are accessible by your router, comma-delimit them in this way:"
-            echo -e "${InvGreen} ${CClear} 192.168.50.0/24,192.168.87.0/24,10.0.100.0/16"
-            echo -e "${InvGreen} ${CClear}"
-            echo -e "${InvGreen} ${CClear} (Default = 192.168.50.0/24)"
-            echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
-            echo  ""
-            read -p "Please enter valid IP4 subnet range? (e=Exit): " routeinput
-            if [ "$routeinput" == "e" ]; then
-              echo -e "\n[Exiting]"; sleep 2
-            else 
-              advroutes=1
-              routes=$routeinput
-              saveconfig
-            fi
-          else
-            advroutes=0
-            routes=""
-            saveconfig
-        fi
-        timer=$timerloop
-      ;;
+      5) advroutests;;
 
       6) # Check for existence of entware, and if so proceed and install the timeout package, then run tailmon -config
         clear
@@ -757,11 +883,35 @@ if [ -f $config ]; then
   source $config
 else
   clear
-  echo -e "${CRed}ERROR: TAILMON is not configured.  Please run 'tailmon.sh -setup' first."
-  echo ""
-  echo -e "${CClear}"
-  exit 1
-fi
+    echo -e "${InvGreen} ${InvDkGray}${CWhite} TAILMON Initial Setup                                                                 ${CClear}"
+    echo -e "${InvGreen} ${CClear}"
+    echo -e "${InvGreen} ${CClear} TAILMON has not been configured yet, and Tailscale will need to be installed and${CClear}"
+    echo -e "${InvGreen} ${CClear} configured. You can choose between 'Express Install' and 'Advanced Install'.${CClear}"
+    echo -e "${InvGreen} ${CClear}"
+    echo -e "${InvGreen} ${CClear} 1) Express Install will automatically download and install Tailscale, choosing the${CClear}"
+    echo -e "${InvGreen} ${CClear} 'Userspace' mode of operation and configures it to advertise routes of your local${CClear}"
+    echo -e "${InvGreen} ${CClear} subnet by default. A URL prompt will appear which will require you to copy this link"
+    echo -e "${InvGreen} ${CClear} into your browser to connect this device to your tailnet."
+    echo -e "${InvGreen} ${CClear}"
+    echo -e "${InvGreen} ${CClear} 2) Advanced Install will launch the TAILMON Setup/Configuration Menu, and allows${CClear}"
+    echo -e "${InvGreen} ${CClear} you to manually choose your preferred settings, such as 'Kernel' vs. 'Userspace'${CClear}"
+    echo -e "${InvGreen} ${CClear} mode, and letting you pick the exit node option along with additional subnets."
+    echo -e "${InvGreen} ${CClear}"    
+    echo -e "${InvGreen} ${CClear} Before starting, please familiarize yourself with how Tailscale works. Please use${CClear}"
+    echo -e "${InvGreen} ${CClear} @ColinTaylor's Wiki available here:${CClear}"
+    echo -e "${InvGreen} ${CClear} https://github.com/RMerl/asuswrt-merlin.ng/wiki/Installing-Tailscale-through-Entware${CClear}"
+    echo -e "${InvGreen} ${CClear}"
+    echo -e "${InvGreen} ${CClear} It is also advised to have an account set and ready to go on https://tailscale.com${CClear}"
+    echo -e "${InvGreen} ${CClear}"
+    echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+    echo ""
+  read -p "Please select? (1=Express Install, 2=Advanced Install, e=Exit): " SelectSetup
+    case $SelectSetup in
+      1) expressinstall;;
+      2) exec sh /jffs/scripts/tailmon.sh -setup;;
+   [Ee]) echo -e "${CClear}"; echo ""; exit 0;;
+    esac
+fi 
 
 while true; do
 
@@ -981,16 +1131,33 @@ while true; do
         if promptyn "[y/n]: "; then
           if [ -d "/opt" ]; then # Does entware exist? If yes proceed, if no error out.
             echo ""
+            echo -e "\nShutting down Tailscale..."
+            tailscale logout
+            tailscale down
+            /opt/etc/init.d/S06tailscaled stop
+            echo ""
+            echo -e "\nRemoving firewall-start entries..."
+            #remove firewall-start entry if found
+            if [ -f /jffs/scripts/firewall-start ]; then
+              if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
+                sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
+              fi
+            fi
+            echo ""
             echo -e "\nUpdating Entware Packages..."
             echo ""
             opkg update
             echo ""
-            echo -e "Uninstalling Tailscale Package(s)..."
+            echo -e "Uninstalling Entware Tailscale Package(s)..."
             echo ""
             opkg remove tailscale
             rm -f /opt/var/tailscaled.state
+            rm -r /opt/var/tailscale
             echo ""
             read -rsp $'Press any key to continue...\n' -n1 key
+            echo ""
+            echo -e "${CClear}"
+            exit 0
           else
             clear
             echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
@@ -1004,7 +1171,9 @@ while true; do
           echo ""
           echo -e "\nExiting Uninstall Utility...${CClear}"
           sleep 1
-          return
+          echo ""
+          echo -e "${CClear}"
+          exit 0
         fi
       else
         echo ""
@@ -1219,10 +1388,34 @@ while true; do
     source $config
   else
     clear
-    echo -e "${CRed}ERROR: TAILMON is not configured.  Please run 'tailmon.sh -setup' first."
+    echo -e "${InvGreen} ${InvDkGray}${CWhite} TAILMON Initial Setup                                                                 ${CClear}"
+    echo -e "${InvGreen} ${CClear}"
+    echo -e "${InvGreen} ${CClear} TAILMON has not been configured yet, and Tailscale will need to be installed and${CClear}"
+    echo -e "${InvGreen} ${CClear} configured. You can choose between 'Express Install' and 'Advanced Install'.${CClear}"
+    echo -e "${InvGreen} ${CClear}"
+    echo -e "${InvGreen} ${CClear} 1) Express Install will automatically download and install Tailscale, choosing the${CClear}"
+    echo -e "${InvGreen} ${CClear} 'Userspace' mode of operation and configures it to advertise routes of your local${CClear}"
+    echo -e "${InvGreen} ${CClear} subnet by default. A URL prompt will appear which will require you to copy this link"
+    echo -e "${InvGreen} ${CClear} into your browser to connect this device to your tailnet."
+    echo -e "${InvGreen} ${CClear}"
+    echo -e "${InvGreen} ${CClear} 2) Advanced Install will launch the TAILMON Setup/Configuration Menu, and allows${CClear}"
+    echo -e "${InvGreen} ${CClear} you to manually choose your preferred settings, such as 'Kernel' vs. 'Userspace'${CClear}"
+    echo -e "${InvGreen} ${CClear} mode, and letting you pick the exit node option along with additional subnets."
+    echo -e "${InvGreen} ${CClear}"    
+    echo -e "${InvGreen} ${CClear} Before starting, please familiarize yourself with how Tailscale works. Please use${CClear}"
+    echo -e "${InvGreen} ${CClear} @ColinTaylor's Wiki available here:${CClear}"
+    echo -e "${InvGreen} ${CClear} https://github.com/RMerl/asuswrt-merlin.ng/wiki/Installing-Tailscale-through-Entware${CClear}"
+    echo -e "${InvGreen} ${CClear}"
+    echo -e "${InvGreen} ${CClear} It is also advised to have an account set and ready to go on https://tailscale.com${CClear}"
+    echo -e "${InvGreen} ${CClear}"
+    echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
     echo ""
-    echo -e "${CClear}"
-    exit 1
+    read -p "Please select? (1=Express Install, 2=Advanced Install, e=Exit): " SelectSetup
+      case $SelectSetup in
+        1) expressinstall;;
+        2) exec sh /jffs/scripts/tailmon.sh -setup;;
+     [Ee]) echo -e "${CClear}"; echo ""; exit 0;;
+      esac
   fi 
   
   if [ -f "/opt/bin/tailscale" ]; then
@@ -1313,7 +1506,7 @@ while true; do
       echo ""
       echo "Executing: tailscale up $exitnodecmd$advroutescmd"
       echo ""
-      tailscale up $exitnodecmd $advroutescmd
+      tailscale up $exitnodecmd$advroutescmd
       sleep 3
       resettimer=1
     fi
