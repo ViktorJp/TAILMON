@@ -1120,7 +1120,6 @@ while true; do
     echo ""
     echo -e "\nAre you sure? Please type 'y' to validate you wish to proceed.${CClear}"
       if promptyn "[y/n]: "; then
-        clear
         #Remove and uninstall files/directories
         rm -f -r /jffs/addons/tailmon.d
         rm -f /jffs/scripts/tailmon.sh
