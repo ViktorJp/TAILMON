@@ -3,14 +3,16 @@
 # TAILMON (TAILMON.SH) is an all-in-one script that is optimized to install, maintain and monitor a Tailscale service and
 # connection from your Asus-Merlin FW router. It provides the basic steps needed to install and implement a successful
 # connection to your tailnet. It allows for 2 different modes of operation: Kernel and Userspace modes. Depending on your
-# needs, you can also enable exit node and subnet route advertisements. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi,
-# and @kuki68ster for all their help, input and testing of this script!
+# needs, you can also enable exit node and subnet route advertisements. Separately, TAILMON functions as a Tailscale
+# monitor application that will sit in the background (using the -screen utility), and will restart the Tailscale service
+# should it happen to go down. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi, and @kuki68ster for all their help, input
+# and testing of this script!
 
 #Preferred standard router binaries path
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="0.0.5"
+version="0.0.6"
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
 dlverpath="/jffs/addons/tailmon.d/version.txt"                       # Static path to the version file
@@ -23,6 +25,7 @@ amtmemailsuccess=0
 amtmemailfailure=0
 exitnode=0
 advroutes=1
+persistentsettings=0
 tsoperatingmode="Userspace"
 precmd=""
 args="--tun=userspace-networking --state=/opt/var/tailscaled.state"
@@ -635,49 +638,11 @@ while true; do
 
             #make mods to the S06tailscaled service for Userspace mode
             if [ "$tsoperatingmode" == "Userspace" ]; then
-            
-              sed -i "s/^ARGS=.*/ARGS=\"--tun=userspace-networking\ --state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
-              sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
-              sed -i -e '/^PRECMD=/d' "/opt/etc/init.d/S06tailscaled"
-              
-              #remove firewall-start entry if found
-              if [ -f /jffs/scripts/firewall-start ]; then
-
-                if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
-                  sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
-                  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: firewall-start entries removed." >> $logfile
-                fi
-              
-              fi
-              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Userspace Mode settings have been applied." >> $logfile
+              applyuserspacemode
             
             #make mods to the S06tailscaled service for Kernel mode
             elif [ "$tsoperatingmode" == "Kernel" ]; then
-            
-              if ! grep -q -F "PRECMD=" /opt/etc/init.d/S06tailscaled; then
-                sed '5 i PRECMD=\"modprobe tun\"' /opt/etc/init.d/S06tailscaled > /opt/etc/init.d/S06tailscaled2
-                rm -f /opt/etc/init.d/S06tailscaled
-                mv /opt/etc/init.d/S06tailscaled2 /opt/etc/init.d/S06tailscaled
-                chmod 755 /opt/etc/init.d/S06tailscaled
-              fi
-              sed -i "s/^ARGS=.*/ARGS=\"--state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
-              sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
-            
-              #modify/create firewall-start
-              if [ -f /jffs/scripts/firewall-start ]; then
-
-                if ! grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
-                  echo "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi # Added by TAILMON" >> /jffs/scripts/firewall-start
-                  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: firewall-start entries created." >> $logfile
-                fi
-
-              else
-                echo "#!/bin/sh" > /jffs/scripts/firewall-start
-                echo "" >> /jffs/scripts/firewall-start
-                echo "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi # Added by TAILMON" >> /jffs/scripts/firewall-start
-                chmod 0755 /jffs/scripts/firewall-start
-              fi
-              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Kernel Mode settings have been applied." >> $logfile
+              applykernelmode
             fi
             
             startts
@@ -705,6 +670,58 @@ while true; do
 
 done
 
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# applyuserspacemode applies the standard settings for the Userspace operating mode
+
+applyuserspacemode()
+{
+  sed -i "s/^ARGS=.*/ARGS=\"--tun=userspace-networking\ --state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
+  sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
+  sed -i -e '/^PRECMD=/d' "/opt/etc/init.d/S06tailscaled"
+  
+  #remove firewall-start entry if found
+  if [ -f /jffs/scripts/firewall-start ]; then
+
+    if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
+      sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: firewall-start entries removed." >> $logfile
+    fi
+  
+  fi
+  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Userspace Mode settings have been applied." >> $logfile
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# applykernelmode applies the standard settings for the Kernel operating mode
+
+applykernelmode()
+{
+  if ! grep -q -F "PRECMD=" /opt/etc/init.d/S06tailscaled; then
+    sed '5 i PRECMD=\"modprobe tun\"' /opt/etc/init.d/S06tailscaled > /opt/etc/init.d/S06tailscaled2
+    rm -f /opt/etc/init.d/S06tailscaled
+    mv /opt/etc/init.d/S06tailscaled2 /opt/etc/init.d/S06tailscaled
+    chmod 755 /opt/etc/init.d/S06tailscaled
+  fi
+  sed -i "s/^ARGS=.*/ARGS=\"--state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
+  sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
+
+  #modify/create firewall-start
+  if [ -f /jffs/scripts/firewall-start ]; then
+
+    if ! grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
+      echo "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi # Added by TAILMON" >> /jffs/scripts/firewall-start
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: firewall-start entries created." >> $logfile
+    fi
+
+  else
+    echo "#!/bin/sh" > /jffs/scripts/firewall-start
+    echo "" >> /jffs/scripts/firewall-start
+    echo "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi # Added by TAILMON" >> /jffs/scripts/firewall-start
+    chmod 0755 /jffs/scripts/firewall-start
+  fi
+  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Kernel Mode settings have been applied." >> $logfile
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -1009,6 +1026,12 @@ while true; do
   else
     keepalivedisp="Yes"
   fi
+  
+  if [ $persistentsettings -eq 0 ]; then
+    persistentsettingsdisp="No"
+  else
+    persistentsettingsdisp="Yes"
+  fi
 
   if [ "$amtmemailsuccess" == "0" ] && [ "$amtmemailfailure" == "0" ]; then
     amtmemailsuccfaildisp="Disabled"
@@ -1033,12 +1056,13 @@ while true; do
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(2)${CClear} : Timer Check Loop Interval                    : ${CGreen}${timerloop}sec"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(3)${CClear} : Custom Event Log size (rows)                 : ${CGreen}$logsize"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(4)${CClear} : AMTM Email Notifications on Success/Failure  : ${CGreen}$amtmemailsuccfaildisp"
+  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(5)${CClear} : Keep settings on Tailscale Entware updates   : ${CGreen}$persistentsettingsdisp"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} | ${CClear}"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(e)${CClear} : Exit${CClear}"
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo ""
-  read -p "Please select? (1-4, e=Exit): " SelectSlot
+  read -p "Please select? (1-5, e=Exit): " SelectSlot
     case $SelectSlot in
       1)
         clear
@@ -1099,6 +1123,34 @@ while true; do
         amtmevents
         source $config
       ;;
+      
+      5)
+        clear
+        echo -e "${InvGreen} ${InvDkGray}${CWhite} Keep Settings Persistent on Tailscale Entware Updates                                 ${CClear}"
+        echo -e "${InvGreen} ${CClear}"
+        echo -e "${InvGreen} ${CClear} Please indicate if you want TAILMON to check the Tailscale Service settings on${CClear}"
+        echo -e "${InvGreen} ${CClear} a regular basis to determine if settings are out-of-sync due to a possible${CClear}"
+        echo -e "${InvGreen} ${CClear} Tailscale Entware upgrade? A common side-effect after updating the Tailscale${CClear}"
+        echo -e "${InvGreen} ${CClear} Entware package is that it will remove your previously configured settings,${CClear}"
+        echo -e "${InvGreen} ${CClear} which could cause your router to no longer participate on your tailnet.${CClear}"        
+        echo -e "${InvGreen} ${CClear}"
+        echo -e "${InvGreen} ${CClear} (Default = No)${CClear}"
+        echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+        echo ""
+        echo -e "${CClear}Current: ${CGreen}$persistentsettingsdisp${CClear}"
+        echo ""
+        echo -e "Keep Settings Persistent?"
+        if promptyn "[y/n]: "
+          then
+            persistentsettings=1
+            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON Keep Settings Persistent enabled." >> $logfile
+          else
+            persistentsettings=0
+            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON Keep Settings Persistent disabled." >> $logfile
+        fi
+        saveconfig
+      ;;
+
       
       [Ee]) echo -e "${CClear}\n[Exiting]"; sleep 2; resettimer=1; break ;;
 
@@ -1326,6 +1378,7 @@ saveconfig()
      echo 'amtmemailsuccess='$amtmemailsuccess
      echo 'amtmemailfailure='$amtmemailfailure
      echo 'tsoperatingmode="'"$tsoperatingmode"'"'
+     echo 'persistentsettings='$persistentsettings
      echo 'exitnode='$exitnode
      echo 'advroutes='$advroutes
      echo 'precmd="'"$precmd"'"'
@@ -1561,23 +1614,56 @@ while true; do
     tsinstalled=0
     exec sh /jffs/scripts/tailmon.sh -setup
   fi
-  
+
+  #Determine if S06tailscaled service settings have changed
+  if [ $tsinstalled -eq 1 ] && [ $persistentsettings -eq 1 ]; then
+    
+    s06args=$(cat /opt/etc/init.d/S06tailscaled | grep ^ARGS= | cut -d '=' -f 2-) 2>/dev/null
+    tailmonargs="\"$args\""
+    
+    if [ "$s06args" != "$tailmonargs" ]; then
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Tailscale Service settings out-of-sync]"
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale Service settings are out-of-sync." >> $logfile
+      sleep 3
+      
+      tsdown
+      stopts
+      
+      #make mods to the S06tailscaled service for Userspace mode
+      if [ "$tsoperatingmode" == "Userspace" ]; then
+        applyuserspacemode
+      #make mods to the S06tailscaled service for Kernel mode
+      elif [ "$tsoperatingmode" == "Kernel" ]; then
+        applykernelmode
+      fi
+      
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Tailscale Service settings synced]"
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale Service settings synced." >> $logfile
+      sleep 3
+      
+      startts
+      tsup
+      
+      sleep 3
+      resettimer=1
+    fi
+    
+  fi
+
+  #Determine if Tailscale service is down
   if [ $tsinstalled -eq 1 ] && [ $keepalive -eq 1 ]; then
     if [ $tsservice -ne 0 ]; then
       printf "\33[2K\r"
       printf "${CGreen}\r[Tailscale Service appears dead]"
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale Service appears dead." >> $logfile
       sleep 3
-      printf "\33[2K\r"
-      echo -e "${CGreen}Messages:"
-      echo ""
-      /opt/etc/init.d/S06tailscaled start
-      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service started." >> $logfile
-      echo ""
-      echo "Executing: tailscale up $exitnodecmd$advroutescmd"
-      echo ""
-      tailscale up $exitnodecmd$advroutescmd
-      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection started." >> $logfile
+
+      startts
+
+      tsup
+
       sleep 3
       resettimer=1
     fi
