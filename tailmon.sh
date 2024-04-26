@@ -1,10 +1,16 @@
 #!/bin/sh
 
+# TAILMON (TAILMON.SH) is an all-in-one script that is optimized to install, maintain and monitor a Tailscale service and
+# connection from your Asus-Merlin FW router. It provides the basic steps needed to install and implement a successful
+# connection to your tailnet. It allows for 2 different modes of operation: Kernel and Userspace modes. Depending on your
+# needs, you can also enable exit node and subnet route advertisements. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi,
+# and @kuki68ster for all their help, input and testing of this script!
+
 #Preferred standard router binaries path
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="0.0.4"
+version="0.0.5"
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
 dlverpath="/jffs/addons/tailmon.d/version.txt"                       # Static path to the version file
@@ -280,11 +286,11 @@ installts () {
     then
       if [ -d "/opt" ]; then # Does entware exist? If yes proceed, if no error out.
         echo ""
-        echo -e "\nUpdating Entware Packages..."
+        echo -e "\n${CGreen}Updating Entware Packages...${CClear}"
         echo ""
         opkg update
         echo ""
-        echo -e "Installing Tailscale Package(s)..."
+        echo -e "${CGreen}Installing Tailscale Package(s)...${CClear}"
         echo ""
         opkg install tailscale
         echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Entware package installed." >> $logfile
@@ -318,45 +324,52 @@ uninstallts () {
   echo -e "Uninstall Tailscale?"
   if promptyn "[y/n]: "
     then
-      if [ -d "/opt" ]; then # Does entware exist? If yes proceed, if no error out.
-        echo ""
-        echo -e "\nShutting down Tailscale..."
-        tailscale logout
-        tailscale down
-        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection shut down and logged out." >> $logfile
-        /opt/etc/init.d/S06tailscaled stop
-        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service shut down." >> $logfile
-        echo ""
-        echo -e "\nRemoving firewall-start entries..."
-        #remove firewall-start entry if found
-        if [ -f /jffs/scripts/firewall-start ]; then
-          if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
-            sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
-            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: firewall-start entries removed." >> $logfile
+      if [ -f /opt/bin/tailscale ]; then
+        if [ -d "/opt" ]; then # Does entware exist? If yes proceed, if no error out.
+          echo ""
+          echo -e "\n${CGreen}Shutting down Tailscale...${CClear}"
+          tailscale logout
+          tailscale down
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection shut down and logged out." >> $logfile
+          /opt/etc/init.d/S06tailscaled stop
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service shut down." >> $logfile
+          echo ""
+          echo -e "\n${CGreen}Removing firewall-start entries...${CClear}"
+          #remove firewall-start entry if found
+          if [ -f /jffs/scripts/firewall-start ]; then
+            if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
+              sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
+              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: firewall-start entries removed." >> $logfile
+            fi
           fi
+          echo ""
+          echo -e "\n${CGreen}Updating Entware Packages...${CClear}"
+          echo ""
+          opkg update
+          echo ""
+          echo -e "${CGreen}Uninstalling Entware Tailscale Package(s)...${CClear}"
+          echo ""
+          opkg remove tailscale
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Entware package removed." >> $logfile
+          rm -f /opt/var/tailscaled.state >/dev/null 2>&1
+          rm -r /opt/var/tailscale >/dev/null 2>&1
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale files and folders removed." >> $logfile
+          echo ""
+          read -rsp $'Press any key to continue...\n' -n1 key
+        else
+          clear
+          echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
+          echo -e "Please install Entware using the AMTM utility before proceeding..."
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Entware not found on router. Please investigate." >> $logfile
+          echo ""
+          read -rsp $'Press any key to continue...\n' -n1 key
+          exit 1
         fi
-        echo ""
-        echo -e "\nUpdating Entware Packages..."
-        echo ""
-        opkg update
-        echo ""
-        echo -e "Uninstalling Entware Tailscale Package(s)..."
-        echo ""
-        opkg remove tailscale
-        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Entware package removed." >> $logfile
-        rm -f /opt/var/tailscaled.state
-        rm -r /opt/var/tailscale
-      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale files and folders removed." >> $logfile
-        echo ""
-        read -rsp $'Press any key to continue...\n' -n1 key
       else
-        clear
-        echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
-        echo -e "Please install Entware using the AMTM utility before proceeding..."
-        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Entware not found on router. Please investigate." >> $logfile
+        echo ""
+        echo -e "\n${CGreen}Tailscale was not found installed on this router.${CClear}"
         echo ""
         read -rsp $'Press any key to continue...\n' -n1 key
-        exit 1
       fi
   fi
   resettimer=1
@@ -427,7 +440,7 @@ tsup () {
 tsdown () {
 
       printf "\33[2K\r"
-      printf "${CGreen}\r[Deactiving Tailscale Connection]"
+      printf "${CGreen}\r[Bringing Tailscale Connection Down]"
       sleep 3
       printf "\33[2K\r"
       echo -e "${CGreen}Messages:${CClear}"
@@ -561,6 +574,7 @@ done
 operatingmode()
 {
 
+restartts=0
 while true; do
   clear
   echo -e "${InvGreen} ${InvDkGray}${CWhite} Operating Mode Configuration                                                          ${CClear}"
@@ -585,6 +599,7 @@ while true; do
   read -p "Please enter value (1=Userspace, 2=Kernel)? (e=Exit): " EnterOperatingMode
   case $EnterOperatingMode in
     1)
+      if [ "$tsoperatingmode" != "Userspace" ]; then restartts=1; fi
       tsoperatingmode="Userspace"
       precmd=""
       args="--tun=userspace-networking --state=/opt/var/tailscaled.state"
@@ -594,6 +609,7 @@ while true; do
     ;;
 
     2)
+      if [ "$tsoperatingmode" != "Kernel" ]; then restartts=1; fi
       tsoperatingmode="Kernel"
       precmd="modprobe tun"
       args="--state=/opt/var/tailscaled.state"
@@ -605,59 +621,86 @@ while true; do
     *)
       
       if [ -f "/opt/bin/tailscale" ]; then
-        #make mods to the S06tailscaled service for Userspace mode
-        if [ "$tsoperatingmode" == "Userspace" ]; then
         
-          sed -i "s/^ARGS=.*/ARGS=\"--tun=userspace-networking\ --state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
-          sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
-          sed -i -e '/^PRECMD=/d' "/opt/etc/init.d/S06tailscaled"
-          
-          #remove firewall-start entry if found
-          if [ -f /jffs/scripts/firewall-start ]; then
+        if [ $restartts -eq 1 ]; then
+          echo ""
+          echo -e "Changing operating modes will require a restart of Tailscale. Restart now?"
+          if promptyn "[y/n]: "
+            then
+            echo ""
+            echo -e "\n${CGreen}Restarting Tailscale Service and Connection...${CClear}"
+            echo ""
+            tsdown
+            stopts
 
-            if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
-              sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
-              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: firewall-start entries removed." >> $logfile
+            #make mods to the S06tailscaled service for Userspace mode
+            if [ "$tsoperatingmode" == "Userspace" ]; then
+            
+              sed -i "s/^ARGS=.*/ARGS=\"--tun=userspace-networking\ --state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
+              sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
+              sed -i -e '/^PRECMD=/d' "/opt/etc/init.d/S06tailscaled"
+              
+              #remove firewall-start entry if found
+              if [ -f /jffs/scripts/firewall-start ]; then
+
+                if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
+                  sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
+                  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: firewall-start entries removed." >> $logfile
+                fi
+              
+              fi
+              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Userspace Mode settings have been applied." >> $logfile
+            
+            #make mods to the S06tailscaled service for Kernel mode
+            elif [ "$tsoperatingmode" == "Kernel" ]; then
+            
+              if ! grep -q -F "PRECMD=" /opt/etc/init.d/S06tailscaled; then
+                sed '5 i PRECMD=\"modprobe tun\"' /opt/etc/init.d/S06tailscaled > /opt/etc/init.d/S06tailscaled2
+                rm -f /opt/etc/init.d/S06tailscaled
+                mv /opt/etc/init.d/S06tailscaled2 /opt/etc/init.d/S06tailscaled
+                chmod 755 /opt/etc/init.d/S06tailscaled
+              fi
+              sed -i "s/^ARGS=.*/ARGS=\"--state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
+              sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
+            
+              #modify/create firewall-start
+              if [ -f /jffs/scripts/firewall-start ]; then
+
+                if ! grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
+                  echo "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi # Added by TAILMON" >> /jffs/scripts/firewall-start
+                  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: firewall-start entries created." >> $logfile
+                fi
+
+              else
+                echo "#!/bin/sh" > /jffs/scripts/firewall-start
+                echo "" >> /jffs/scripts/firewall-start
+                echo "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi # Added by TAILMON" >> /jffs/scripts/firewall-start
+                chmod 0755 /jffs/scripts/firewall-start
+              fi
+              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Kernel Mode settings have been applied." >> $logfile
             fi
+            
+            startts
+            tsup
+
+          fi
           
-          fi
-          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Userspace Mode settings have been applied." >> $logfile
-        
-        #make mods to the S06tailscaled service for Kernel mode
-        elif [ "$tsoperatingmode" == "Kernel" ]; then
-        
-          if ! grep -q -F "PRECMD=" /opt/etc/init.d/S06tailscaled; then
-            sed '5 i PRECMD=\"modprobe tun\"' /opt/etc/init.d/S06tailscaled > /opt/etc/init.d/S06tailscaled2
-            rm -f /opt/etc/init.d/S06tailscaled
-            mv /opt/etc/init.d/S06tailscaled2 /opt/etc/init.d/S06tailscaled
-            chmod 755 /opt/etc/init.d/S06tailscaled
-          fi
-          sed -i "s/^ARGS=.*/ARGS=\"--state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
-          sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
-        
-          #modify/create firewall-start
-          if [ -f /jffs/scripts/firewall-start ]; then
+          echo ""
+          echo -e "${CClear}[Exiting]"
+          timer=$timerloop
+          break
 
-            if ! grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
-              echo "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi # Added by TAILMON" >> /jffs/scripts/firewall-start
-              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: firewall-start entries created." >> $logfile
-            fi
-
-          else
-            echo "#!/bin/sh" > /jffs/scripts/firewall-start
-            echo "" >> /jffs/scripts/firewall-start
-            echo "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi # Added by TAILMON" >> /jffs/scripts/firewall-start
-            chmod 0755 /jffs/scripts/firewall-start
-          fi
-          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Kernel Mode settings have been applied." >> $logfile
+        else
+        
+          echo ""
+          echo -e "${CClear}[Exiting]"
+          timer=$timerloop
+          break
+        
         fi
       fi
-      
-      echo ""
-      echo -e "${CClear}[Exiting]"
-      timer=$timerloop
-      break
     ;;
+    
   esac
 
 done
@@ -669,10 +712,10 @@ done
 
 exitnodets()
 {
-	
+  
   clear
   if [ $exitnode -eq 0 ]; then exitnodedisp="No"; elif [ $exitnode -eq 1 ]; then exitnodedisp="Yes"; fi
-  	
+    
   echo -e "${InvGreen} ${InvDkGray}${CWhite} Configure Router as Exit Node                                                         ${CClear}"
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} A Tailscale Exit Node is a feature that lets you route all non-Tailscale internet"
@@ -703,10 +746,10 @@ exitnodets()
 
 advroutests()
 {
-	
+  
   clear
   if [ $advroutes -eq 0 ]; then advroutesdisp="No"; elif [ $advroutes -eq 1 ]; then advroutesdisp="Yes"; fi
-  	
+    
   echo -e "${InvGreen} ${InvDkGray}${CWhite} Advertise Routes on this Router                                                       ${CClear}"
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} Tailscale can act as a 'subnet router' that allow you to access multiple devices"
@@ -766,9 +809,11 @@ vsetup()
 while true; do
 
   clear # Initial Setup
-  if [ ! -f $config ]; then # Write /jffs/addons/tailmon.d/tailmon.cfg
+  if [ -f $config ]; then
+    source $config
+  else
     saveconfig
-  fi
+  fi 
   
   if [ -f "/opt/bin/tailscale" ]; then tsinstalleddisp="Installed"; else tsinstalleddisp="Not Installed"; fi
   if [ $exitnode -eq 0 ]; then exitnodedisp="No"; elif [ $exitnode -eq 1 ]; then exitnodedisp="Yes"; fi
@@ -803,11 +848,11 @@ while true; do
       
       2) uninstallts;;
       
-      3) operatingmode;;
+      3) if [ -f "/opt/bin/tailscale" ]; then operatingmode; fi;;
       
-      4) exitnodets;;
+      4) if [ -f "/opt/bin/tailscale" ]; then exitnodetsl; fi;;
       
-      5) advroutests;;
+      5) if [ -f "/opt/bin/tailscale" ]; then advroutests; fi;;
 
       6) # Check for existence of entware, and if so proceed and install the timeout package, then run tailmon -config
         clear
@@ -1174,56 +1219,59 @@ while true; do
         rm -f -r /jffs/addons/tailmon.d
         rm -f /jffs/scripts/tailmon.sh
         echo ""
-        echo -e "\nTAILMON has been uninstalled...${CClear}"
+        echo -e "\n${CGreen}TAILMON has been uninstalled...${CClear}"
         echo ""
-        echo -e "Would you also like to uninstall Tailscale from your router?"
-        if promptyn "[y/n]: "; then
-          if [ -d "/opt" ]; then # Does entware exist? If yes proceed, if no error out.
-            echo ""
-            echo -e "\nShutting down Tailscale..."
-            tailscale logout
-            tailscale down
-            /opt/etc/init.d/S06tailscaled stop
-            echo ""
-            echo -e "\nRemoving firewall-start entries..."
-            #remove firewall-start entry if found
-            if [ -f /jffs/scripts/firewall-start ]; then
-              if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
-                sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
+        if [ -f "/opt/bin/tailscale" ]; then
+          echo -e "Would you also like to uninstall Tailscale from your router?"
+          if promptyn "[y/n]: "; then
+            if [ -d "/opt" ]; then # Does entware exist? If yes proceed, if no error out.
+              echo ""
+              echo -e "\n${CGreen}Shutting down Tailscale...${CClear}"
+              tailscale logout
+              tailscale down
+              /opt/etc/init.d/S06tailscaled stop
+              echo ""
+              echo -e "\n${CGreen}Removing firewall-start entries...${CClear}"
+              #remove firewall-start entry if found
+              if [ -f /jffs/scripts/firewall-start ]; then
+                if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
+                  sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
+                fi
               fi
+              echo -e "\n${CGreen}Updating Entware Packages...${CClear}"
+              echo ""
+              opkg update
+              echo ""
+              echo -e "${CGreen}Uninstalling Entware Tailscale Package(s)...${CClear}"
+              echo ""
+              opkg remove tailscale
+              rm -f /opt/var/tailscaled.state >/dev/null 2>&1
+              rm -r /opt/var/tailscale >/dev/null 2>&1
+              echo ""
+              read -rsp $'Press any key to continue...\n' -n1 key
+              echo ""
+              echo -e "${CClear}"
+              exit 0
+              break
+            else
+              clear
+              echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
+              echo -e "Please install Entware using the AMTM utility before proceeding..."
+              echo ""
+              read -rsp $'Press any key to continue...\n' -n1 key
+              exit 1
             fi
+            exit 0
+          else
             echo ""
-            echo -e "\nUpdating Entware Packages..."
-            echo ""
-            opkg update
-            echo ""
-            echo -e "Uninstalling Entware Tailscale Package(s)..."
-            echo ""
-            opkg remove tailscale
-            rm -f /opt/var/tailscaled.state
-            rm -r /opt/var/tailscale
-            echo ""
-            read -rsp $'Press any key to continue...\n' -n1 key
+            echo -e "\nExiting Uninstall Utility...${CClear}"
+            sleep 1
             echo ""
             echo -e "${CClear}"
             exit 0
-          else
-            clear
-            echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
-            echo -e "Please install Entware using the AMTM utility before proceeding..."
-            echo ""
-            read -rsp $'Press any key to continue...\n' -n1 key
-            exit 1
           fi
-          exit 0
-        else
-          echo ""
-          echo -e "\nExiting Uninstall Utility...${CClear}"
-          sleep 1
-          echo ""
-          echo -e "${CClear}"
-          exit 0
         fi
+        exit 0
       else
         echo ""
         echo -e "\nExiting Uninstall Utility...${CClear}"
@@ -1438,7 +1486,7 @@ while true; do
   fi 
   
   if [ -f "/opt/bin/tailscale" ]; then
-  	tsinstalled=1
+    tsinstalled=1
     clear
     
     if [ $keepalive -eq 1 ]; then
@@ -1509,9 +1557,9 @@ while true; do
     #read -rsp $'Press any key to continue...\n' -n1 key
   
   else
-    echo -e "Tailscale is not installed"
     echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale binaries not found. Please investigate." >> $logfile
     tsinstalled=0
+    exec sh /jffs/scripts/tailmon.sh -setup
   fi
   
   if [ $tsinstalled -eq 1 ] && [ $keepalive -eq 1 ]; then
