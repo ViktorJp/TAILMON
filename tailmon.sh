@@ -12,7 +12,8 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="0.0.6"
+version="0.0.7"
+beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
 dlverpath="/jffs/addons/tailmon.d/version.txt"                       # Static path to the version file
@@ -843,24 +844,63 @@ while true; do
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(1)${CClear} : Install Tailscale Entware Package(s)         : ${CGreen}$tsinstalleddisp${CClear}"
+
+  printf "\33[2K\r"
+  printf "${CGreen}\r[Checking Services...Stand By]"
+
+  /opt/etc/init.d/S06tailscaled check >/dev/null 2>&1
+  tsservice=$?
+  if [ $tsservice -ne 0 ]; then tsservicedisp="Stopped"; else tsservicedisp="Started"; fi
+  
+  tailscale status >/dev/null 2>&1
+  tsconn=$?
+  if [ $tsconn -ne 0 ]; then tsconndisp="Disconnected"; else tsconndisp="Connected"; fi
+
+  printf "\33[2K\r"
+
+  if [ "$tsinstalleddisp" == "Installed" ]; then
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} |-${CClear}-- ${InvGreen}${CWhite}(S)${CClear}tart / S${InvGreen}${CWhite}(T)${CClear}op Tailscale Service${CClear}           |--- ${CGreen}$tsservicedisp${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} |-${CClear}-- ${InvGreen}${CWhite}(U)${CClear}p / ${InvGreen}${CWhite}(D)${CClear}own Tailscale Connection${CClear}           |--- ${CGreen}$tsconndisp${CClear}"
+  fi
+
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(2)${CClear} : Uninstall Tailscale Entware Package(s)${CClear}"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(3)${CClear} : Set Tailscale Operating Mode                 : ${CGreen}$tsoperatingmode${CClear}"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(4)${CClear} : Configure this Router as Exit Node           : ${CGreen}$exitnodedisp${CClear}"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(5)${CClear} : Advertise Routes on this router              : ${CGreen}$advroutesdisp${CClear}"
-  echo -e "${InvGreen} ${CClear}"  
+  echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
-  echo -e "${InvGreen} ${CClear}"  
+  echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(6)${CClear} : Custom configuration options for TAILMON${CClear}"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(7)${CClear} : Force reinstall Entware dependencies${CClear}"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(8)${CClear} : Check for latest updates${CClear}"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(9)${CClear} : Uninstall TAILMON${CClear}"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} | ${CClear}"
+  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(L)${CClear} : Launch TAILMON in Monitoring Mode${CClear}"
+  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(M)${CClear} : Launch TAILMON in Monitoring Mode using SCREEN${CClear}"
+  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} | ${CClear}"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(e)${CClear} : Exit${CClear}"
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo ""
-  read -p "Please select? (1-9, e=Exit): " SelectSlot
+  if [ "$tsinstalleddisp" == "Installed" ]; then
+    read -p "Please select? (1-9, S/T/U/D/L/M, e=Exit): " SelectSlot
+  else
+    read -p "Please select? (1-9, L/M, e=Exit): " SelectSlot
+  fi
     case $SelectSlot in
+
+      [Ss]) echo ""; startts;;
+      
+      [Tt]) echo ""; stopts;;
+      
+      [Uu]) echo ""; tsup;;
+      
+      [Dd]) echo ""; tsdown;;
+      
+      [Ll]) exec sh /jffs/scripts/tailmon.sh -noswitch;;
+      
+      [Mm]) exec sh /jffs/scripts/tailmon.sh -screen -now;;
+    
       1) installts;;
       
       2) uninstallts;;
@@ -930,12 +970,14 @@ while true; do
                 echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Entware was not found installed on router. Please investigate." >> $logfile
                 echo ""
                 read -rsp $'Press any key to continue...\n' -n1 key
+                exit 1
               fi
-            else
-              echo ""
-              echo -e "\nExecuting Configuration Utility..."
-              sleep 2
-              vconfig
+          else
+            echo ""
+            echo -e "\n${CClear}[Exiting]"
+            echo ""
+            sleep 2
+            return
           fi
         fi
       ;;
@@ -1391,6 +1433,9 @@ saveconfig()
 
 # -------------------------------------------------------------------------------------------------------------------------
 
+# Check for updates
+updatecheck
+
 # Check and see if any commandline option is being used
 if [ $# -eq 0 ]
   then
@@ -1568,6 +1613,9 @@ while true; do
     elif [ $tzonechars = 3 ]; then tzspaces="      ";
     elif [ $tzonechars = 4 ]; then tzspaces="     ";
     elif [ $tzonechars = 5 ]; then tzspaces="    "; fi
+
+    #Display tailmon Update Notifications
+    if [ "$UpdateNotify" != "0" ]; then echo -e "$UpdateNotify"; fi
 
     #Display tailmon client header
     echo -en "${InvGreen} ${InvDkGray} TAILMON - v"
