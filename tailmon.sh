@@ -12,7 +12,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="0.0.7"
+version="0.0.8"
 beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
@@ -130,7 +130,8 @@ progressbaroverride()
 # -------------------------------------------------------------------------------------------------------------------------
 # Initial setup menu
 
-initialsetup () {
+initialsetup() 
+{
 
     clear
     echo -e "${InvGreen} ${InvDkGray}${CWhite} TAILMON Initial Setup                                                                 ${CClear}"
@@ -173,7 +174,8 @@ initialsetup () {
 # -------------------------------------------------------------------------------------------------------------------------
 # Expressinstall script
 
-expressinstall () {
+expressinstall() 
+{
 
   echo ""
   echo -e "Ready to Express Install Tailscale?"
@@ -276,7 +278,8 @@ expressinstall () {
 # -------------------------------------------------------------------------------------------------------------------------
 # Install script
 
-installts () {
+installts() 
+{
 
   clear
   echo -e "${InvGreen} ${InvDkGray}${CWhite} Install Tailscale                                                                     ${CClear}"
@@ -316,7 +319,8 @@ installts () {
 # -------------------------------------------------------------------------------------------------------------------------
 # Uninstall script
 
-uninstallts () {
+uninstallts() 
+{
 
   clear
   echo -e "${InvGreen} ${InvDkGray}${CWhite} Uninstall Tailscale                                                                   ${CClear}"
@@ -382,7 +386,8 @@ uninstallts () {
 # -------------------------------------------------------------------------------------------------------------------------
 # start service script
 
-startts () {
+startts() 
+{
 
       printf "\33[2K\r"
       printf "${CGreen}\r[Starting Tailscale Service]"
@@ -400,7 +405,8 @@ startts () {
 # -------------------------------------------------------------------------------------------------------------------------
 # stop service script
 
-stopts () {
+stopts() 
+{
 
       printf "\33[2K\r"
       printf "${CGreen}\r[Stopping Tailscale Service]"
@@ -418,7 +424,8 @@ stopts () {
 # -------------------------------------------------------------------------------------------------------------------------
 # Tailscale connection up
 
-tsup () {
+tsup() 
+{
 
       printf "\33[2K\r"
       printf "${CGreen}\r[Activating Tailscale Connection]"
@@ -441,7 +448,8 @@ tsup () {
 # -------------------------------------------------------------------------------------------------------------------------
 # Tailscale connection down
 
-tsdown () {
+tsdown() 
+{
 
       printf "\33[2K\r"
       printf "${CGreen}\r[Bringing Tailscale Connection Down]"
@@ -819,10 +827,151 @@ advroutests()
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
+# installdependencies checks for existence of entware, and if so proceed and install the packages, then run tailmon -config
+
+installdependencies()
+{
+
+  clear
+  if [ -f "/opt/bin/timeout" ] && [ -f "/opt/sbin/screen" ]; then
+    vconfig
+  else
+    clear
+    echo -e "${InvGreen} ${InvDkGray}${CWhite} Install Dependencies                                                                  ${CClear}"
+    echo -e "${InvGreen} ${CClear}"
+    echo -e "${InvGreen} ${CClear} Missing dependencies required by TAILMON will be installed during this process."         
+    echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+    echo ""
+    echo -e "TAILMON has some dependencies in order to function correctly, namely, CoreUtils-Timeout"
+    echo -e "and the Screen utility. These utilities require you to have Entware already installed"
+    echo -e "using the AMTM tool. If Entware is present, the Timeout and Screen utilities will"
+    echo -e "automatically be downloaded and installed during this process."
+    echo ""
+    echo -e "${CGreen}CoreUtils-Timeout${CClear} is a utility that provides more stability for certain routers (like"
+    echo -e "the RT-AC86U) which has a tendency to randomly hang scripts running on this router model."
+    echo ""
+    echo -e "${CGreen}Screen${CClear} is a utility that allows you to run SSH scripts in a standalone environment"
+    echo -e "directly on the router itself, instead of running your commands or a script from a network-"
+    echo -e "attached SSH client. This can provide greater stability due to it running on the router"
+    echo -e "itself."
+    echo ""
+    [ -z "$($timeoutcmd$timeoutsec nvram get odmpid)" ] && RouterModel="$($timeoutcmd$timeoutsec nvram get productid)" || RouterModel="$($timeoutcmd$timeoutsec nvram get odmpid)" # Thanks @thelonelycoder for this logic
+    echo -e "Your router model is: ${CGreen}$RouterModel${CClear}"
+    echo ""
+    echo -e "Ready to install?"
+    if promptyn "[y/n]: "
+      then
+        if [ -d "/opt" ]; then # Does entware exist? If yes proceed, if no error out.
+          echo ""
+          echo -e "\n${CClear}Updating Entware Packages..."
+          echo ""
+          opkg update
+          echo ""
+          echo -e "Installing Entware ${CGreen}CoreUtils-Timeout${CClear} Package...${CClear}"
+          echo ""
+          opkg install coreutils-timeout
+          echo ""
+          echo -e "Installing Entware ${CGreen}Screen${CClear} Package...${CClear}"
+          echo ""
+          opkg install screen
+          echo ""
+          echo -e "Install completed..."
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Entware dependencies installed." >> $logfile
+          echo ""
+          read -rsp $'Press any key to continue...\n' -n1 key
+          echo ""
+          echo -e "Executing Configuration Utility..."
+          sleep 2
+          vconfig
+        else
+          clear
+          echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
+          echo -e "Please install Entware using the AMTM utility before proceeding..."
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Entware was not found installed on router. Please investigate." >> $logfile
+          echo ""
+          read -rsp $'Press any key to continue...\n' -n1 key
+          exit 1
+        fi
+    else
+      echo ""
+      echo -e "\n${CClear}[Exiting]"
+      echo ""
+      sleep 2
+    fi
+  fi
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# reinstalldependencies force re-installs the entware packages
+
+reinstalldependencies() 
+{
+
+  clear
+  echo -e "${InvGreen} ${InvDkGray}${CWhite} Re-install Dependencies                                                               ${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} Missing dependencies required by TAILMON will be re-installed during this process."         
+  echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+  echo ""
+  echo -e "Would you like to re-install the CoreUtils-Timeout and the Screen utility? These"
+  echo -e "utilities require you to have Entware already installed using the AMTM tool. If Entware"
+  echo -e "is present, the Timeout and Screen utilities will be uninstalled, downloaded and re-"
+  echo -e "installed during this setup process..."
+  echo ""
+  echo -e "${CGreen}CoreUtils-Timeout${CClear} is a utility that provides more stability for certain routers (like"
+  echo -e "the RT-AC86U) which has a tendency to randomly hang scripts running on this router"
+  echo -e "model."
+  echo ""
+  echo -e "${CGreen}Screen${CClear} is a utility that allows you to run SSH scripts in a standalone environment"
+  echo -e "directly on the router itself, instead of running your commands or a script from a"
+  echo -e "network-attached SSH client. This can provide greater stability due to it running on"
+  echo -e "the router itself."
+  echo ""
+  [ -z "$($timeoutcmd$timeoutsec nvram get odmpid)" ] && RouterModel="$($timeoutcmd$timeoutsec nvram get productid)" || RouterModel="$($timeoutcmd$timeoutsec nvram get odmpid)" # Thanks @thelonelycoder for this logic
+  echo -e "Your router model is: ${CGreen}$RouterModel${CClear}"
+  echo ""
+  echo -e "Force Re-install?"
+  if promptyn "[y/n]: "
+    then
+      if [ -d "/opt" ]; then # Does entware exist? If yes proceed, if no error out.
+        echo ""
+        echo -e "\nUpdating Entware Packages..."
+        echo ""
+        opkg update
+        echo ""
+        echo -e "Force Re-installing Entware ${CGreen}CoreUtils-Timeout${CClear} Package..."
+        echo ""
+        opkg install --force-reinstall coreutils-timeout
+        echo ""
+        echo -e "Force Re-installing Entware ${CGreen}Screen${CClear} Package..."
+        echo ""
+        opkg install --force-reinstall screen
+        echo ""
+        echo -e "Re-install completed..."
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Entware dependencies re-installed." >> $logfile
+        echo ""
+        read -rsp $'Press any key to continue...\n' -n1 key
+      else
+        clear
+        echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
+        echo -e "Please install Entware using the AMTM utility before proceeding..."
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Entware was not found installed on router. Please investigate." >> $logfile
+        echo ""
+        read -rsp $'Press any key to continue...\n' -n1 key
+        exit 1
+      fi
+  fi
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
 # vsetup provide a menu interface to allow for initial component installs, uninstall, etc.
 
 vsetup()
 {
+
+if [ ! -f "/opt/bin/timeout" ] || [ ! -f "/opt/sbin/screen" ]; then
+  installdependencies
+fi
 
 while true; do
 
@@ -911,138 +1060,16 @@ while true; do
       
       5) if [ -f "/opt/bin/tailscale" ]; then advroutests; fi;;
 
-      6) # Check for existence of entware, and if so proceed and install the timeout package, then run tailmon -config
-        clear
-        if [ -f "/opt/bin/timeout" ] && [ -f "/opt/sbin/screen" ]; then
-          vconfig
-        else
-          clear
-          echo -e "${InvGreen} ${InvDkGray}${CWhite} Install Dependencies                                                                  ${CClear}"
-          echo -e "${InvGreen} ${CClear}"
-          echo -e "${InvGreen} ${CClear} Missing dependencies required by TAILMON will be installed during this process."         
-          echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
-          echo ""
-          echo -e "TAILMON has some dependencies in order to function correctly, namely, CoreUtils-Timeout"
-          echo -e "and the Screen utility. These utilities require you to have Entware already installed"
-          echo -e "using the AMTM tool. If Entware is present, the Timeout and Screen utilities will"
-          echo -e "automatically be downloaded and installed during this process."
-          echo ""
-          echo -e "${CGreen}CoreUtils-Timeout${CClear} is a utility that provides more stability for certain routers (like"
-          echo -e "the RT-AC86U) which has a tendency to randomly hang scripts running on this router model."
-          echo ""
-          echo -e "${CGreen}Screen${CClear} is a utility that allows you to run SSH scripts in a standalone environment"
-          echo -e "directly on the router itself, instead of running your commands or a script from a network-"
-          echo -e "attached SSH client. This can provide greater stability due to it running on the router"
-          echo -e "itself."
-          echo ""
-          [ -z "$($timeoutcmd$timeoutsec nvram get odmpid)" ] && RouterModel="$($timeoutcmd$timeoutsec nvram get productid)" || RouterModel="$($timeoutcmd$timeoutsec nvram get odmpid)" # Thanks @thelonelycoder for this logic
-          echo -e "Your router model is: ${CGreen}$RouterModel${CClear}"
-          echo ""
-          echo -e "Ready to install?"
-          if promptyn "[y/n]: "
-            then
-              if [ -d "/opt" ]; then # Does entware exist? If yes proceed, if no error out.
-                echo ""
-                echo -e "\n${CClear}Updating Entware Packages..."
-                echo ""
-                opkg update
-                echo ""
-                echo -e "Installing Entware ${CGreen}CoreUtils-Timeout${CClear} Package...${CClear}"
-                echo ""
-                opkg install coreutils-timeout
-                echo ""
-                echo -e "Installing Entware ${CGreen}Screen${CClear} Package...${CClear}"
-                echo ""
-                opkg install screen
-                echo ""
-                echo -e "Install completed..."
-                echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Entware dependencies installed." >> $logfile
-                echo ""
-                read -rsp $'Press any key to continue...\n' -n1 key
-                echo ""
-                echo -e "Executing Configuration Utility..."
-                sleep 2
-                vconfig
-              else
-                clear
-                echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
-                echo -e "Please install Entware using the AMTM utility before proceeding..."
-                echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Entware was not found installed on router. Please investigate." >> $logfile
-                echo ""
-                read -rsp $'Press any key to continue...\n' -n1 key
-                exit 1
-              fi
-          else
-            echo ""
-            echo -e "\n${CClear}[Exiting]"
-            echo ""
-            sleep 2
-            return
-          fi
-        fi
-      ;;
+      6) installdependencies;;
 
-      7) # Force re-install the CoreUtils timeout/screen package
-        clear
-        echo -e "${InvGreen} ${InvDkGray}${CWhite} Re-install Dependencies                                                               ${CClear}"
-        echo -e "${InvGreen} ${CClear}"
-        echo -e "${InvGreen} ${CClear} Missing dependencies required by TAILMON will be re-installed during this process."         
-        echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
-        echo ""
-        echo -e "Would you like to re-install the CoreUtils-Timeout and the Screen utility? These"
-        echo -e "utilities require you to have Entware already installed using the AMTM tool. If Entware"
-        echo -e "is present, the Timeout and Screen utilities will be uninstalled, downloaded and re-"
-        echo -e "installed during this setup process..."
-        echo ""
-        echo -e "${CGreen}CoreUtils-Timeout${CClear} is a utility that provides more stability for certain routers (like"
-        echo -e "the RT-AC86U) which has a tendency to randomly hang scripts running on this router"
-        echo -e "model."
-        echo ""
-        echo -e "${CGreen}Screen${CClear} is a utility that allows you to run SSH scripts in a standalone environment"
-        echo -e "directly on the router itself, instead of running your commands or a script from a"
-        echo -e "network-attached SSH client. This can provide greater stability due to it running on"
-        echo -e "the router itself."
-        echo ""
-        [ -z "$($timeoutcmd$timeoutsec nvram get odmpid)" ] && RouterModel="$($timeoutcmd$timeoutsec nvram get productid)" || RouterModel="$($timeoutcmd$timeoutsec nvram get odmpid)" # Thanks @thelonelycoder for this logic
-        echo -e "Your router model is: ${CGreen}$RouterModel${CClear}"
-        echo ""
-        echo -e "Force Re-install?"
-        if promptyn "[y/n]: "
-          then
-            if [ -d "/opt" ]; then # Does entware exist? If yes proceed, if no error out.
-              echo ""
-              echo -e "\nUpdating Entware Packages..."
-              echo ""
-              opkg update
-              echo ""
-              echo -e "Force Re-installing Entware ${CGreen}CoreUtils-Timeout${CClear} Package..."
-              echo ""
-              opkg install --force-reinstall coreutils-timeout
-              echo ""
-              echo -e "Force Re-installing Entware ${CGreen}Screen${CClear} Package..."
-              echo ""
-              opkg install --force-reinstall screen
-              echo ""
-              echo -e "Re-install completed..."
-              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Entware dependencies re-installed." >> $logfile
-              echo ""
-              read -rsp $'Press any key to continue...\n' -n1 key
-            else
-              clear
-              echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
-              echo -e "Please install Entware using the AMTM utility before proceeding..."
-              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Entware was not found installed on router. Please investigate." >> $logfile
-              echo ""
-              read -rsp $'Press any key to continue...\n' -n1 key
-            fi
-        fi
-      ;;
+      7) reinstalldependencies;;
+      
       8) vupdate;;
+      
       9) vuninstall;;
-      [Ee])
-            echo ""
-            timer=$timerloop
-            break;;
+      
+      [Ee]) echo ""; timer=$timerloop; break;;
+      
     esac
 done
 
@@ -1574,6 +1601,21 @@ if ! grep -F "sh /jffs/scripts/tailmon.sh" /jffs/configs/profile.add >/dev/null 
   echo "alias tailmon=\"sh /jffs/scripts/tailmon.sh\" # added by tailmon" >> /jffs/configs/profile.add
 fi
 
+if [ ! -f "/opt/bin/timeout" ] || [ ! -f "/opt/sbin/screen" ]; then
+  installdependencies
+fi
+
+if [ -f "/opt/bin/timeout" ] # If the timeout utility is available then use it and assign variables
+  then
+    timeoutcmd="timeout "
+    timeoutsec="10"
+    timeoutlng="60"
+  else
+    timeoutcmd=""
+    timeoutsec=""
+    timeoutlng=""
+fi
+  
 while true; do
 
   # Grab the TAILMON config file and read it in
