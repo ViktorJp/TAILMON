@@ -12,7 +12,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="0.0.8"
+version="0.0.9"
 beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
@@ -32,6 +32,16 @@ precmd=""
 args="--tun=userspace-networking --state=/opt/var/tailscaled.state"
 preargs="nohup"
 routes="$(nvram get lan_ipaddr | cut -d"." -f1-3).0/24"
+customcmdline=""
+
+#AMTM Email Notification Variables
+readonly scriptFileName="${0##*/}"
+readonly scriptFileNTag="${scriptFileName%.*}"
+readonly CEM_LIB_TAG="master"
+readonly CEM_LIB_URL="https://raw.githubusercontent.com/Martinski4GitHub/CustomMiscUtils/${CEM_LIB_TAG}/EMail"
+readonly CUSTOM_EMAIL_LIBDir="/jffs/addons/shared-libs"
+readonly CUSTOM_EMAIL_LIBName="CustomEMailFunctions.lib.sh"
+readonly CUSTOM_EMAIL_LIBFile="${CUSTOM_EMAIL_LIBDir}/$CUSTOM_EMAIL_LIBName"
 
 # Color variables
 CBlack="\e[1;30m"
@@ -57,7 +67,7 @@ CClear="\e[0m"
 # -------------------------------------------------------------------------------------------------------------------------
 # Promptyn is a simple function that accepts y/n input
 
-promptyn() 
+promptyn()
 {   # No defaults, just y or n
   while true; do
     read -p "$1" -n 1 -r yn
@@ -72,14 +82,14 @@ promptyn()
 # -------------------------------------------------------------------------------------------------------------------------
 # Preparebar and Progressbar is a script that provides a nice progressbar to show script activity
 
-preparebar() 
+preparebar()
 {
   barlen=$1
   barspaces=$(printf "%*s" "$1")
   barchars=$(printf "%*s" "$1" | tr ' ' "$2")
 }
 
-progressbaroverride() 
+progressbaroverride()
 {
   insertspc=" "
   bypasswancheck=0
@@ -116,7 +126,7 @@ progressbaroverride()
           [Kk]) vconfig;;
           [Ll]) vlogs;;
           [Mm]) timerloopconfig;;
-          [Pp]) edittsoptions;;
+          [Oo]) if [ "$tsoperatingmode" == "Custom" ]; then customconfig; fi;;
           [Ss]) startts;;
           [Tt]) stopts;;
           [Uu]) tsup;;
@@ -130,7 +140,7 @@ progressbaroverride()
 # -------------------------------------------------------------------------------------------------------------------------
 # Initial setup menu
 
-initialsetup() 
+initialsetup()
 {
 
     clear
@@ -147,7 +157,7 @@ initialsetup()
     echo -e "${InvGreen} ${CClear} 2) Advanced Install will launch the TAILMON Setup/Configuration Menu, and allows${CClear}"
     echo -e "${InvGreen} ${CClear} you to manually choose your preferred settings, such as 'Kernel' vs. 'Userspace'${CClear}"
     echo -e "${InvGreen} ${CClear} mode, and letting you pick the exit node option along with additional subnets."
-    echo -e "${InvGreen} ${CClear}"    
+    echo -e "${InvGreen} ${CClear}"
     echo -e "${InvGreen} ${CClear} Before starting, please familiarize yourself with how Tailscale works. Please use${CClear}"
     echo -e "${InvGreen} ${CClear} @ColinTaylor's Wiki available here:${CClear}"
     echo -e "${InvGreen} ${CClear} https://github.com/RMerl/asuswrt-merlin.ng/wiki/Installing-Tailscale-through-Entware${CClear}"
@@ -158,14 +168,14 @@ initialsetup()
     echo ""
     read -p "Please select? (1=Express Install, 2=Advanced Install, e=Exit): " SelectSetup
       case $SelectSetup in
-        1) 
+        1)
         echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON Express Install initiated." >> $logfile
         expressinstall;;
-        
+
         2)
         echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON Advanced Install initiated." >> $logfile
         exec sh /jffs/scripts/tailmon.sh -setup;;
-        
+
         [Ee]) echo -e "${CClear}"; echo ""; exit 0;;
       esac
 
@@ -174,7 +184,7 @@ initialsetup()
 # -------------------------------------------------------------------------------------------------------------------------
 # Expressinstall script
 
-expressinstall() 
+expressinstall()
 {
 
   echo ""
@@ -206,35 +216,35 @@ expressinstall()
       echo -e "${CClear}"
       exit 0
   fi
-  
+
   echo ""
   echo -e "${CGreen}Applying settings for Userspace mode of operation...${CClear}"
-    
+
     tsoperatingmode="Userspace"
     precmd=""
     args="--tun=userspace-networking --state=/opt/var/tailscaled.state"
     preargs="nohup"
     saveconfig
-    
+
   echo ""
   echo -e "${CGreen}Applying settings to Tailscale service and connection...${CClear}"
 
   if [ -f "/opt/bin/tailscale" ]; then
     #make mods to the S06tailscaled service for Userspace mode
     if [ "$tsoperatingmode" == "Userspace" ]; then
-    
+
       sed -i "s/^ARGS=.*/ARGS=\"--tun=userspace-networking\ --state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
       sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
       sed -i -e '/^PRECMD=/d' "/opt/etc/init.d/S06tailscaled"
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Userspace Mode settings have been applied." >> $logfile
-      
+
       #remove firewall-start entry if found
       if [ -f /jffs/scripts/firewall-start ]; then
 
         if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
           sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
         fi
-      
+
       fi
     fi
   else
@@ -243,13 +253,13 @@ expressinstall()
     echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale binaries not found on router. Please investigate." >> $logfile
     exit 1
   fi
-  
+
   echo ""
   echo -e "${CGreen}Starting Tailscale service...${CClear}"
   echo ""
   /opt/etc/init.d/S06tailscaled start
   echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service started." >> $logfile
-  
+
   echo ""
   echo ""
   echo -e "${CGreen}Starting Tailscale connection...${CClear}"
@@ -257,7 +267,7 @@ expressinstall()
   echo -e "${CGreen}Please be prepared to copy and paste the link below into your browser, and connect this device"
   echo -e "to your tailnet (Tailscale Network)${CClear}"
   echo ""
-  
+
   advroutescmd="--advertise-routes=$routes"
   echo -e "${CGreen}Executing: tailscale up $advroutescmd${CClear}"
   echo ""
@@ -269,7 +279,7 @@ expressinstall()
   echo -e "${CGreen}Express Install Completed Successfully!${CClear}"
   echo ""
   read -rsp $'Press any key to continue...\n' -n1 key
-  
+
   exec sh /jffs/scripts/tailmon.sh -noswitch
   echo -e "${CClear}"
   exit 0
@@ -278,7 +288,7 @@ expressinstall()
 # -------------------------------------------------------------------------------------------------------------------------
 # Install script
 
-installts() 
+installts()
 {
 
   clear
@@ -319,7 +329,7 @@ installts()
 # -------------------------------------------------------------------------------------------------------------------------
 # Uninstall script
 
-uninstallts() 
+uninstallts()
 {
 
   clear
@@ -386,7 +396,7 @@ uninstallts()
 # -------------------------------------------------------------------------------------------------------------------------
 # start service script
 
-startts() 
+startts()
 {
 
       printf "\33[2K\r"
@@ -405,7 +415,7 @@ startts()
 # -------------------------------------------------------------------------------------------------------------------------
 # stop service script
 
-stopts() 
+stopts()
 {
 
       printf "\33[2K\r"
@@ -424,22 +434,30 @@ stopts()
 # -------------------------------------------------------------------------------------------------------------------------
 # Tailscale connection up
 
-tsup() 
+tsup()
 {
 
       printf "\33[2K\r"
       printf "${CGreen}\r[Activating Tailscale Connection]"
       sleep 3
       printf "\33[2K\r"
-      
+
       if [ $exitnode -eq 1 ]; then exitnodecmd="--advertise-exit-node "; else exitnodecmd=""; fi
       if [ $advroutes -eq 1 ]; then advroutescmd="--advertise-routes=$routes"; else advroutescmd=""; fi
 
       echo -e "${CGreen}Messages:${CClear}"
       echo ""
-      echo "Executing: tailscale up $exitnodecmd$advroutescmd"
-      echo ""
-      tailscale up $exitnodecmd$advroutescmd
+
+      if [ "$tsoperatingmode" == "Custom" ]; then
+        echo "Executing: tailscale up $customcmdline"
+        echo ""
+        tailscale up $customcmdline
+      else
+        echo "Executing: tailscale up $exitnodecmd$advroutescmd"
+        echo ""
+        tailscale up $exitnodecmd$advroutescmd
+      fi
+
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection started." >> $logfile
       sleep 3
       resettimer=1
@@ -448,7 +466,7 @@ tsup()
 # -------------------------------------------------------------------------------------------------------------------------
 # Tailscale connection down
 
-tsdown() 
+tsdown()
 {
 
       printf "\33[2K\r"
@@ -485,7 +503,7 @@ while true; do
   echo ""
   read -p "Please enter value (1-999)? (e=Exit): " EnterTimerLoop
   case $EnterTimerLoop in
-    [1-9]) 
+    [1-9])
       timerloop=$EnterTimerLoop
       saveconfig
       timer=$timerloop
@@ -516,59 +534,149 @@ done
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
-# edittsoptions lets you edit the args for tailscale
+# customconfig lets you edit the args and settings for tailscale
 
-edittsoptions()
+customconfig()
 {
 
+restartts=0
 while true; do
   clear
-  echo -e "${InvGreen} ${InvDkGray}${CWhite} Edit ARGS and PREARGS Options (userspace mode)                                        ${CClear}"
+  echo -e "${InvGreen} ${InvDkGray}${CWhite} Custom Tailscale Configuration                                                        ${CClear}"
   echo -e "${InvGreen} ${CClear}"
-  echo -e "${InvGreen} ${CClear} Please indicate what options you want in the Tailscale ARGS and PREARGS fields for${CClear}"
-  echo -e "${InvGreen} ${CClear} the Tailscale S06Tailscaled service? It is recommended to leave these options as${CClear}"
-  echo -e "${InvGreen} ${CClear} default to ensure the greatest amount of stability. Once you have made changes,${CClear}"
-  echo -e "${InvGreen} ${CClear} please make sure to (S)ync Options, which will write your changes to the Tailscale${CClear}"
-  echo -e "${InvGreen} ${CClear} Service file (/opt/etc/init.d/S06tailscaled)${CClear}"
+  echo -e "${InvGreen} ${CClear} This functionality allows you to choose your own Tailscale ARGS, PREARGS and PRECMD${CClear}"
+  echo -e "${InvGreen} ${CClear} entries, and allows you to modify the Tailscale connection commandline options.${CClear}"
   echo -e "${InvGreen} ${CClear}"
-  echo -e "${InvGreen} ${CClear} (Defaults:${CClear}"
-  echo -e "${InvGreen} ${CClear} ARGS=\"--tun=userspace-networking --state=/opt/var/tailscaled.state\"${CClear}"
-  echo -e "${InvGreen} ${CClear} PREARGS=\"nohup\"${CClear})"
+  echo -e "${InvGreen} ${CClear} ${CYellow}Proceed at your own risk!${CClear}"
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo -e "${InvGreen} ${CClear}"
-  echo -e "${InvGreen} ${CClear} Current values in /opt/etc/init.d/S06tailscaled:${CClear}"
+  echo -e "${InvGreen} ${CClear} Current Operating Mode: ${CGreen}$tsoperatingmode${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} Current values in Tailscale Service (/opt/etc/init.d/S06tailscaled):${CClear}"
+
   s06args=$(cat /opt/etc/init.d/S06tailscaled | grep ^ARGS= | cut -d '=' -f 2-) 2>/dev/null
+  if [ -z "$s06args" ]; then
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(1)${CClear} ${CGreen}ARGS=\"\"${CClear}"
+  else
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(1)${CClear} ${CGreen}ARGS=$s06args${CClear}"
+  fi
+
   s06preargs=$(cat /opt/etc/init.d/S06tailscaled | grep ^PREARGS= | cut -d '=' -f 2-) 2>/dev/null
-  echo -e "${InvGreen} ${CClear} ${CGreen}ARGS=$s06args${CClear}"
-  echo -e "${InvGreen} ${CClear} ${CGreen}PREARGS=$s06preargs${CClear}"
+  if [ -z "$s06preargs" ]; then
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(2)${CClear} ${CGreen}PREARGS=\"\"${CClear}"
+  else
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(2)${CClear} ${CGreen}PREARGS=$s06preargs${CClear}"
+  fi
+
+  s06precmd=$(cat /opt/etc/init.d/S06tailscaled | grep ^PRECMD= | cut -d '=' -f 2-) 2>/dev/null
+  if [ -z "$s06precmd" ]; then
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(3)${CClear} ${CGreen}PRECMD=\"\"${CClear}"
+  else
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(3)${CClear} ${CGreen}PRECMD=$s06precmd${CClear}"
+  fi
+
   echo -e "${InvGreen} ${CClear}"
-  echo -e "${InvGreen} ${CClear} Saved TAILMON values:${CClear}"
-  echo -e "${InvGreen} ${CClear} ${CGreen}(1) ARGS=\"$args\"${CClear}"
-  echo -e "${InvGreen} ${CClear} ${CGreen}(2) PREARGS=\"$preargs\"${CClear}"
+  echo -e "${InvGreen} ${CClear} Current custom values being used for Tailscale Connection commandline:${CClear}"
+
+  if [ -z "$customcmdline" ]; then
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(4)${CClear} ${CGreen}CMD=\"\"${CClear}"
+  else
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(4)${CClear} ${CGreen}CMD=\"$customcmdline\"${CClear}"
+  fi
+
   echo -e "${InvGreen} ${CClear}"
-  
+  echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo ""
-  read -p "Please enter value (1-2)? (s=Sync Options) (e=Exit): " EnterTimerLoop
+  read -p "Please enter item to modify (1-4)? (e=Exit): " EnterTimerLoop
   case $EnterTimerLoop in
-    [1-9]) 
-      timerloop=$EnterTimerLoop
+    1)
+      echo ""
+      echo -e "${CClear}When entering a custom statement, please do not use quotes or other abnormal characters."
+      echo -e "${CClear}Example: --tun=userspace-networking --state=/opt/var/tailscaled.state"
+      echo ""
+      read -p "Enter new ARGS= " EnterNewArgs
+      tsoperatingmode="Custom"
+      args=$EnterNewArgs
+      args_regexp="$(printf '%s' "$args" | sed -e 's/[]\/$*.^|[]/\\&/g' | sed ':a;N;$!ba;s,\n,\\n,g')"
+      sed -i "s/^ARGS=.*/ARGS=\"$args_regexp\"/" "/opt/etc/init.d/S06tailscaled"
       saveconfig
       timer=$timerloop
+      restartts=1
     ;;
 
-    [1-9][0-9])
-      timerloop=$EnterTimerLoop
+    2)
+      echo ""
+      echo -e "${CClear}When entering a custom statement, please do not use quotes or other abnormal characters."
+      echo -e "${CClear}Example: nohup"
+      echo ""
+      read -p "Enter new PREARGS= " EnterNewPreArgs
+      tsoperatingmode="Custom"
+      preargs=$EnterNewPreArgs
+      preargs_regexp="$(printf '%s' "$preargs" | sed -e 's/[]\/$*.^|[]/\\&/g' | sed ':a;N;$!ba;s,\n,\\n,g')"
+      sed -i "s/^PREARGS=.*/PREARGS=\"$preargs_regexp\"/" "/opt/etc/init.d/S06tailscaled"
       saveconfig
       timer=$timerloop
+      restartts=1
+
     ;;
 
-    [1-9][0-9][0-9])
-      timerloop=$EnterTimerLoop
+    3)
+      echo ""
+      echo -e "${CClear}When entering a custom statement, please do not use quotes or other abnormal characters."
+      echo -e "${CClear}Example: modprobe tun"
+      echo ""
+      read -p "Enter new PRECMD= " EnterNewPreCmd
+      tsoperatingmode="Custom"
+      precmd=$EnterNewPreCmd
+      precmd_regexp="$(printf '%s' "$precmd" | sed -e 's/[]\/$*.^|[]/\\&/g' | sed ':a;N;$!ba;s,\n,\\n,g')"
+
+      if ! grep -q -F "PRECMD=" /opt/etc/init.d/S06tailscaled; then
+        sed '5 i PRECMD=\"'"$precmd_regexp"'\"' /opt/etc/init.d/S06tailscaled > /opt/etc/init.d/S06tailscaled2
+        rm -f /opt/etc/init.d/S06tailscaled
+        mv /opt/etc/init.d/S06tailscaled2 /opt/etc/init.d/S06tailscaled
+        chmod 755 /opt/etc/init.d/S06tailscaled
+      else
+        sed -i "s/^PRECMD=.*/PRECMD=\"$precmd_regexp\"/" "/opt/etc/init.d/S06tailscaled"
+      fi
+
       saveconfig
       timer=$timerloop
+      restartts=1
+    ;;
+
+    4)
+      echo ""
+      echo -e "${CClear}When entering a custom statement, please do not use quotes or other abnormal characters."
+      echo -e "${CClear}Example: --advertise-exit-node --advertise-routes=192.168.50.0/24,192.168.87.0/24"
+      echo ""
+      read -p "Enter new Commandline Options: " EnterNewCmdOptions
+      tsoperatingmode="Custom"
+      customcmdline=$EnterNewCmdOptions
+      saveconfig
+      timer=$timerloop
+      restartts=1
     ;;
 
     *)
+    
+      if [ -f "/opt/bin/tailscale" ]; then
+        if [ $restartts -eq 1 ]; then
+          echo ""
+          echo -e "Changing custom configuration options will require a restart of Tailscale. Restart now?"
+          if promptyn "[y/n]: "
+            then
+            echo ""
+            echo -e "\n${CGreen}Restarting Tailscale Service and Connection...${CClear}"
+            echo ""
+
+            tsdown
+            stopts
+            startts
+            tsup
+            
+          fi
+        fi
+      fi
       echo ""
       echo -e "${CClear}[Exiting]"
       timer=$timerloop
@@ -603,37 +711,60 @@ while true; do
   echo -e "${InvGreen} ${CClear} is not as optimized as the Linux kernel, it makes up for it slightly in being able${CClear}"
   echo -e "${InvGreen} ${CClear} to avoid some context switches to the kernel.${CClear}"
   echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} A 3rd option (Custom) is also available, that allows you to enter your own custom${CClear}"
+  echo -e "${InvGreen} ${CClear} settings for the ARGS, PREARGS, PRECMD and Tailscale Commandline. ${CClear}"
   echo -e "${InvGreen} ${CClear} (Default = Userspace Mode)${CClear}"
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} Current: ${CGreen}$tsoperatingmode${CClear}"
   echo ""
-  read -p "Please enter value (1=Userspace, 2=Kernel)? (e=Exit): " EnterOperatingMode
+  read -p "Please enter value (1=Userspace, 2=Kernel, 3=Custom)? (e=Exit): " EnterOperatingMode
   case $EnterOperatingMode in
     1)
       if [ "$tsoperatingmode" != "Userspace" ]; then restartts=1; fi
+      echo -e "\n${CGreen}[Userspace Operating Mode Selected]"
+      sleep 3
       tsoperatingmode="Userspace"
       precmd=""
       args="--tun=userspace-networking --state=/opt/var/tailscaled.state"
       preargs="nohup"
+      customcmdline=""
       saveconfig
       timer=$timerloop
     ;;
 
     2)
       if [ "$tsoperatingmode" != "Kernel" ]; then restartts=1; fi
+      echo -e "\n${CGreen}[Kernel Operating Mode Selected]"
+      sleep 3
       tsoperatingmode="Kernel"
       precmd="modprobe tun"
       args="--state=/opt/var/tailscaled.state"
       preargs="nohup"
+      customcmdline=""
+      saveconfig
+      timer=$timerloop
+    ;;
+
+    3)
+      if [ "$tsoperatingmode" != "Custom" ]; then restartts=1; fi
+      echo -e "\n${CGreen}[Custom Operating Mode Selected]"
+      sleep 3
+      tsoperatingmode="Custom"
+      precmd="modprobe tun"
+      args="--state=/opt/var/tailscaled.state"
+      preargs="nohup"
+      if [ $exitnode -eq 1 ]; then exitnodecmd="--advertise-exit-node "; else exitnodecmd=""; fi
+      if [ $advroutes -eq 1 ]; then advroutescmd="--advertise-routes=$routes"; else advroutescmd=""; fi
+      customcmdline="$exitnodecmd$advroutescmd"
       saveconfig
       timer=$timerloop
     ;;
 
     *)
-      
+
       if [ -f "/opt/bin/tailscale" ]; then
-        
+
         if [ $restartts -eq 1 ]; then
           echo ""
           echo -e "Changing operating modes will require a restart of Tailscale. Restart now?"
@@ -642,39 +773,53 @@ while true; do
             echo ""
             echo -e "\n${CGreen}Restarting Tailscale Service and Connection...${CClear}"
             echo ""
+
             tsdown
             stopts
 
             #make mods to the S06tailscaled service for Userspace mode
             if [ "$tsoperatingmode" == "Userspace" ]; then
               applyuserspacemode
-            
+
             #make mods to the S06tailscaled service for Kernel mode
             elif [ "$tsoperatingmode" == "Kernel" ]; then
               applykernelmode
+
+            #make mods to the S06tailscaled service for Custom mode
+            elif [ "$tsoperatingmode" == "Custom" ]; then
+              applycustommode
             fi
-            
+
             startts
             tsup
 
+            if [ "$tsoperatingmode" == "Custom" ]; then
+              echo ""
+              echo -e "Would you like to customize your Tailscale settings now?"
+              if promptyn "[y/n]: "
+              then
+              	customconfig
+              fi
+            fi
+
           fi
-          
+
           echo ""
           echo -e "${CClear}[Exiting]"
           timer=$timerloop
           break
 
         else
-        
+
           echo ""
           echo -e "${CClear}[Exiting]"
           timer=$timerloop
           break
-        
+
         fi
       fi
     ;;
-    
+
   esac
 
 done
@@ -689,7 +834,7 @@ applyuserspacemode()
   sed -i "s/^ARGS=.*/ARGS=\"--tun=userspace-networking\ --state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
   sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
   sed -i -e '/^PRECMD=/d' "/opt/etc/init.d/S06tailscaled"
-  
+
   #remove firewall-start entry if found
   if [ -f /jffs/scripts/firewall-start ]; then
 
@@ -697,9 +842,10 @@ applyuserspacemode()
       sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: firewall-start entries removed." >> $logfile
     fi
-  
+
   fi
   echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Userspace Mode settings have been applied." >> $logfile
+  sendmessage 0 "Tailscale Operating Mode Userspace"
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -712,6 +858,8 @@ applykernelmode()
     rm -f /opt/etc/init.d/S06tailscaled
     mv /opt/etc/init.d/S06tailscaled2 /opt/etc/init.d/S06tailscaled
     chmod 755 /opt/etc/init.d/S06tailscaled
+  else
+    sed -i "s/^PRECMD=.*/PRECMD=\"modprobe tun\"/" "/opt/etc/init.d/S06tailscaled"
   fi
   sed -i "s/^ARGS=.*/ARGS=\"--state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
   sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
@@ -731,6 +879,47 @@ applykernelmode()
     chmod 0755 /jffs/scripts/firewall-start
   fi
   echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Kernel Mode settings have been applied." >> $logfile
+  sendmessage 0 "Tailscale Operating Mode Kernel"
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# applycustommode applies the standard settings for the Custom operating mode which initially mimics Kernel mode
+
+applycustommode()
+{
+  if ! grep -q -F "PRECMD=" /opt/etc/init.d/S06tailscaled; then
+    sed '5 i PRECMD=\"modprobe tun\"' /opt/etc/init.d/S06tailscaled > /opt/etc/init.d/S06tailscaled2
+    rm -f /opt/etc/init.d/S06tailscaled
+    mv /opt/etc/init.d/S06tailscaled2 /opt/etc/init.d/S06tailscaled
+    chmod 755 /opt/etc/init.d/S06tailscaled
+  else
+    sed -i "s/^PRECMD=.*/PRECMD=\"modprobe tun\"/" "/opt/etc/init.d/S06tailscaled"
+  fi
+  sed -i "s/^ARGS=.*/ARGS=\"--state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
+  sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
+
+  #modify/create firewall-start
+  if [ -f /jffs/scripts/firewall-start ]; then
+
+    if ! grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
+      echo "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi # Added by TAILMON" >> /jffs/scripts/firewall-start
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: firewall-start entries created." >> $logfile
+    fi
+
+  else
+    echo "#!/bin/sh" > /jffs/scripts/firewall-start
+    echo "" >> /jffs/scripts/firewall-start
+    echo "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi # Added by TAILMON" >> /jffs/scripts/firewall-start
+    chmod 0755 /jffs/scripts/firewall-start
+  fi
+
+  if [ $exitnode -eq 1 ]; then exitnodecmd="--advertise-exit-node "; else exitnodecmd=""; fi
+  if [ $advroutes -eq 1 ]; then advroutescmd="--advertise-routes=$routes"; else advroutescmd=""; fi
+  customcmdline="$exitnodecmd$advroutescmd"
+  saveconfig
+
+  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Custom Mode settings have been applied." >> $logfile
+  sendmessage 0 "Tailscale Operating Mode Custom"
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -738,10 +927,10 @@ applykernelmode()
 
 exitnodets()
 {
-  
+
   clear
   if [ $exitnode -eq 0 ]; then exitnodedisp="No"; elif [ $exitnode -eq 1 ]; then exitnodedisp="Yes"; fi
-    
+
   echo -e "${InvGreen} ${InvDkGray}${CWhite} Configure Router as Exit Node                                                         ${CClear}"
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} A Tailscale Exit Node is a feature that lets you route all non-Tailscale internet"
@@ -772,10 +961,10 @@ exitnodets()
 
 advroutests()
 {
-  
+
   clear
   if [ $advroutes -eq 0 ]; then advroutesdisp="No"; elif [ $advroutes -eq 1 ]; then advroutesdisp="Yes"; fi
-    
+
   echo -e "${InvGreen} ${InvDkGray}${CWhite} Advertise Routes on this Router                                                       ${CClear}"
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} Tailscale can act as a 'subnet router' that allow you to access multiple devices"
@@ -810,7 +999,7 @@ advroutests()
       read -p "Please enter valid IP4 subnet range? (e=Exit): " routeinput
       if [ "$routeinput" == "e" ]; then
         echo -e "\n[Exiting]"; sleep 2
-      else 
+      else
         advroutes=1
         routes=$routeinput
         saveconfig
@@ -823,6 +1012,265 @@ advroutests()
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Advertised routes disabled." >> $logfile
   fi
   timer=$timerloop
+
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# amtmevents lets you pick success or failure amtm email notification selections
+
+amtmevents()
+{
+
+while true; do
+  clear
+  echo -e "${InvGreen} ${InvDkGray}${CWhite} AMTM Email Notifications                                                              ${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} Please indicate if you would like TAILMON to send you email notifications for${CClear}"
+  echo -e "${InvGreen} ${CClear} Tailscale service/connection failures, or successes, or both?  PLEASE NOTE: This${CClear}"
+  echo -e "${InvGreen} ${CClear} does require that AMTM email has been set up successfully under AMTM -> em (email${CClear}"
+  echo -e "${InvGreen} ${CClear} settings). Once you are able to send and receive test emails from AMTM, you may${CClear}"
+  echo -e "${InvGreen} ${CClear} use this functionality in TAILMON. Additionally, this functionality will download${CClear}"
+  echo -e "${InvGreen} ${CClear} an AMTM email interface library courtesey of @Martinsky, and will be located${CClear}"
+  echo -e "${InvGreen} ${CClear} under a new common shared library folder called: /jffs/addons/shared-libs.${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} Use the corresponding ${CGreen}()${CClear} key to enable/disable email event notifications:${CClear}"
+  echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+
+  if [ "$amtmemailsuccess" == "1" ]; then amtmemailsuccessdisp="${CGreen}Y${CCyan}"; else amtmemailsuccess=0; amtmemailsuccessdisp="${CRed}N${CCyan}"; fi
+  if [ "$amtmemailfailure" == "1" ]; then amtmemailfailuredisp="${CGreen}Y${CCyan}"; else amtmemailfailure=0; amtmemailfailuredisp="${CRed}N${CCyan}"; fi
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}Tailscale Success Event Notifications${CClear} ${CGreen}(1) -${CClear} $amtmemailsuccessdisp${CClear}"
+  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}Tailscale Failure Event Notifications${CClear} ${CGreen}(2) -${CClear} $amtmemailfailuredisp${CClear}"
+  echo ""
+  read -p "Please select? (1-2, e=Exit, t=Test Email): " SelectSlot
+    case $SelectSlot in
+      1) if [ "$amtmemailsuccess" == "0" ]; then amtmemailsuccess=1; amtmemailsuccessdisp="${CGreen}Y${CCyan}"; elif [ "$amtmemailsuccess" == "1" ]; then amtmemailsuccess=0; amtmemailsuccessdisp="${CRed}N${CCyan}"; fi;;
+      2) if [ "$amtmemailfailure" == "0" ]; then amtmemailfailure=1; amtmemailfailuredisp="${CGreen}Y${CCyan}"; elif [ "$amtmemailfailure" == "1" ]; then amtmemailfailure=0; amtmemailfailuredisp="${CRed}N${CCyan}"; fi;;
+      [Tt])
+         if [ -f "$CUSTOM_EMAIL_LIBFile" ]
+           then
+           . "$CUSTOM_EMAIL_LIBFile"
+
+           if [ -z "${CEM_LIB_VERSION:+xSETx}" ] || \
+             _CheckLibraryUpdates_CEM_ "$CUSTOM_EMAIL_LIBDir" quiet
+             then
+               _DownloadCEMLibraryFile_ "update"
+           fi
+           else
+             _DownloadCEMLibraryFile_ "install"
+         fi
+
+         cemIsFormatHTML=true
+         cemIsVerboseMode=true  ## true OR false ##
+         emailBodyTitle="Testing Email Notification"
+         emailSubject="TEST: TAILMON Email Notification"
+         tmpEMailBodyFile="/tmp/var/tmp/tmpEMailBody_${scriptFileNTag}.$$.TXT"
+
+         {
+          printf "This is a <b>TEST</b> to check & verify if sending email notifications is working well from <b>TAILMON</b>.\n"
+         } > "$tmpEMailBodyFile"
+
+         _SendEMailNotification_ "TAILMON v$version" "$emailSubject" "$tmpEMailBodyFile" "$emailBodyTitle"
+
+         echo ""
+         echo ""
+         read -rsp $'Press any key to acknowledge...\n' -n1 key
+         ;;
+
+      [Ee]) 
+         saveconfig
+         echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: AMTM Email notification configuration saved" >> $logfile
+         timer=$timerloop
+         break;;
+    esac
+done
+
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+
+########################################################################
+# AMTM Email Notification Functionality generously donated by @Martinski!
+#
+# Creation Date: 2020-Jun-11 [Martinski W.]
+# Last Modified: 2024-Feb-07 [Martinski W.]
+# Modified for TAILMON Purposes [Viktor Jaep]
+########################################################################
+
+#-----------------------------------------------------------#
+_DownloadCEMLibraryFile_()
+{
+   local msgStr  retCode
+   case "$1" in
+        update) msgStr="Updating" ;;
+       install) msgStr="Installing" ;;
+             *) return 1 ;;
+   esac
+   
+   printf "\33[2K\r"
+   printf "${CGreen}\r[INFO: ${msgStr} the shared AMTM email library script file to support email notifications...]${CClear}" 
+   echo -e "$(date +'%b %d %Y %X') $(nvram get lan_hostname) TAILMON[$$] - INFO: ${msgStr} the shared AMTM email library script file to support email notifications..." >> $logfile
+
+   mkdir -m 755 -p "$CUSTOM_EMAIL_LIBDir"
+   curl -kLSs --retry 3 --retry-delay 5 --retry-connrefused \
+   "${CEM_LIB_URL}/$CUSTOM_EMAIL_LIBName" -o "$CUSTOM_EMAIL_LIBFile"
+   curlCode="$?"
+
+   if [ "$curlCode" -eq 0 ] && [ -f "$CUSTOM_EMAIL_LIBFile" ]
+   then
+       retCode=0
+       chmod 755 "$CUSTOM_EMAIL_LIBFile"
+       . "$CUSTOM_EMAIL_LIBFile"
+       #printf "\nDone.\n"
+   else
+       retCode=1
+       printf "\33[2K\r"
+       printf "${CRed}\r[ERROR: Unable to download the shared library script file ($CUSTOM_EMAIL_LIBName).]${CClear}"
+       echo -e "$(date +'%b %d %Y %X') $(nvram get lan_hostname) TAILMON[$$] - **ERROR**: Unable to download the shared AMTM email library script file [$CUSTOM_EMAIL_LIBName]." >> $logfile
+   fi
+   return "$retCode"
+}
+
+#-----------------------------------------------------------#
+# ARG1: The email name/alias to be used as "FROM_NAME"
+# ARG2: The email Subject string.
+# ARG3: Full path of file containing the email Body text.
+# ARG4: The email Body Title string [OPTIONAL].
+#-----------------------------------------------------------#
+_SendEMailNotification_()
+{
+
+   if [ -z "${amtmIsEMailConfigFileEnabled:+xSETx}" ]
+   then
+       printf "\33[2K\r"
+       printf "${CRed}\r[ERROR: Email library script ($CUSTOM_EMAIL_LIBFile) *NOT* FOUND.]${CClear}"
+       sleep 5
+       echo -e "$(date +'%b %d %Y %X') $(nvram get lan_hostname) TAILMON[$$] - **ERROR**: Email library script [$CUSTOM_EMAIL_LIBFile] *NOT* FOUND." >> $logfile
+       return 1
+   fi
+
+   if [ $# -lt 3 ] || [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]
+   then
+       printf "\33[2K\r"
+       printf "${CRed}\r[ERROR: INSUFFICIENT email parameters]${CClear}"
+       sleep 5
+       echo -e "$(date +'%b %d %Y %X') $(nvram get lan_hostname) TAILMON[$$] - **ERROR**: INSUFFICIENT email parameters." >> $logfile
+       return 1
+   fi
+   local retCode  emailBodyTitleStr=""
+
+   [ $# -gt 3 ] && [ -n "$4" ] && emailBodyTitleStr="$4"
+
+   FROM_NAME="$1"
+   _SendEMailNotification_CEM_ "$2" "-F=$3" "$emailBodyTitleStr"
+   retCode="$?"
+
+   if [ "$retCode" -eq 0 ]
+   then
+     printf "\33[2K\r"
+     printf "${CGreen}\r[Email notification was sent successfully ($2)]${CClear}" 
+     echo -e "$(date +'%b %d %Y %X') $(nvram get lan_hostname) TAILMON[$$] - INFO: Email notification was sent successfully [$2]" >> $logfile
+     sleep 5
+   else
+     printf "\33[2K\r"
+     printf "${CRed}\r[ERROR: Failure to send email notification (Error Code: $retCode - $2).]${CClear}"
+     echo -e "$(date +'%b %d %Y %X') $(nvram get lan_hostname) TAILMON[$$] - **ERROR**: Failure to send email notification [$2]" >> $logfile
+     sleep 5
+   fi
+
+   return "$retCode"
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# sendmessage is a function that sends an AMTM email based on activity within VPNMON-R3
+# $1 = Success/Failure 0/1
+# $2 = Component
+# $3 = VPN Slot
+
+sendmessage () {
+
+#If AMTM email functionality is disabled, return back to the function call
+if [ "$amtmemailsuccess" == "0" ] && [ "$amtmemailfailure" == "0" ]; then
+  return
+fi
+
+  #Load, install or update the shared AMTM Email integration library
+  if [ -f "$CUSTOM_EMAIL_LIBFile" ]
+  then
+    . "$CUSTOM_EMAIL_LIBFile"
+
+    if [ -z "${CEM_LIB_VERSION:+xSETx}" ] || \
+      _CheckLibraryUpdates_CEM_ "$CUSTOM_EMAIL_LIBDir" quiet
+    then
+      _DownloadCEMLibraryFile_ "update"
+    fi
+  else
+      _DownloadCEMLibraryFile_ "install"
+  fi
+
+  cemIsFormatHTML=true
+  cemIsVerboseMode=false
+  tmpEMailBodyFile="/tmp/var/tmp/tmpEMailBody_${scriptFileNTag}.$$.TXT"
+
+  #Pick the scenario and send email
+  if [ "$1" == "1" ] && [ "$amtmemailfailure" == "1" ]; then
+    if [ "$2" == "Tailscale Service settings out-of-sync" ]; then
+      emailSubject="ALERT: Tailscale Service settings out-of-sync"
+      emailBodyTitle="ALERT: Tailscale Service settings out-of-sync"
+      {
+      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+      printf "\n"
+      printf "<b>ALERT: TAILMON</b> is currently recovering from out-of-sync settings issues! TAILMON has detected\n"
+      printf "that the Tailscale service settings are not in sync with the TAILMON config. This could be due to a\n"
+      printf "Tailscale update. TAILMON has fixed the settings and restarted the Tailscale service/connection.\n"
+      printf "\n"
+      } > "$tmpEMailBodyFile"    
+    elif [ "$2" == "Tailscale Service Restarted" ]; then
+      emailSubject="FAILURE: Tailscale Service Restarted"
+      emailBodyTitle="FAILURE: Tailscale Service Restarted"
+      {
+      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+      printf "\n"
+      printf "<b>FAILURE: TAILMON</b> has detected that the Tailscale service was dead and not connected. TAILMON.\n"
+      printf "has reset the service, and reestablished a connection to your Tailnet. Please investigate if this\n"
+      printf "behavior continues to persist.\n"
+      printf "\n"
+      } > "$tmpEMailBodyFile"
+    fi
+    _SendEMailNotification_ "TAILMON v$version" "$emailSubject" "$tmpEMailBodyFile" "$emailBodyTitle"
+  fi  
+  
+  if [ "$1" == "0" ] && [ "$amtmemailsuccess" == "1" ]; then
+    if [ "$2" == "Tailscale Operating Mode Userspace" ]; then
+      emailSubject="SUCCESS: Tailscale Operating Mode changed to Userspace Mode"
+      emailBodyTitle="SUCCESS: Tailscale Operating Mode changed to Userspace Mode"
+      {
+      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+      printf "\n"
+      printf "<b>SUCCESS: TAILMON</b> has changed Tailscale Operating Mode to Userspace mode.\n"
+      printf "\n"
+      } > "$tmpEMailBodyFile"
+    elif [ "$2" == "Tailscale Operating Mode Kernel" ]; then
+      emailSubject="SUCCESS: Tailscale Operating Mode changed to Kernel Mode"
+      emailBodyTitle="SUCCESS: Tailscale Operating Mode changed to Kernel Mode"
+      {
+      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+      printf "\n"
+      printf "<b>SUCCESS: TAILMON</b> has changed Tailscale Operating Mode to Kernel mode\n"
+      printf "\n"
+      } > "$tmpEMailBodyFile"
+    elif [ "$2" == "Tailscale Operating Mode Custom" ]; then
+      emailSubject="SUCCESS: Tailscale Operating Mode changed to Custom Mode"
+      emailBodyTitle="SUCCESS: Tailscale Operating Mode changed to Custom Mode"
+      {
+      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+      printf "\n"
+      printf "<b>SUCCESS: TAILMON</b> has changed Tailscale Operating Mode to Custom mode\n"
+      printf "\n"
+      } > "$tmpEMailBodyFile"
+    fi
+    _SendEMailNotification_ "TAILMON v$version" "$emailSubject" "$tmpEMailBodyFile" "$emailBodyTitle"
+  fi
   
 }
 
@@ -839,7 +1287,7 @@ installdependencies()
     clear
     echo -e "${InvGreen} ${InvDkGray}${CWhite} Install Dependencies                                                                  ${CClear}"
     echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear} Missing dependencies required by TAILMON will be installed during this process."         
+    echo -e "${InvGreen} ${CClear} Missing dependencies required by TAILMON will be installed during this process."
     echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
     echo ""
     echo -e "TAILMON has some dependencies in order to function correctly, namely, CoreUtils-Timeout"
@@ -905,13 +1353,13 @@ installdependencies()
 # -------------------------------------------------------------------------------------------------------------------------
 # reinstalldependencies force re-installs the entware packages
 
-reinstalldependencies() 
+reinstalldependencies()
 {
 
   clear
   echo -e "${InvGreen} ${InvDkGray}${CWhite} Re-install Dependencies                                                               ${CClear}"
   echo -e "${InvGreen} ${CClear}"
-  echo -e "${InvGreen} ${CClear} Missing dependencies required by TAILMON will be re-installed during this process."         
+  echo -e "${InvGreen} ${CClear} Missing dependencies required by TAILMON will be re-installed during this process."
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo ""
   echo -e "Would you like to re-install the CoreUtils-Timeout and the Screen utility? These"
@@ -981,8 +1429,8 @@ while true; do
     source $config
   else
     saveconfig
-  fi 
-  
+  fi
+
   if [ -f "/opt/bin/tailscale" ]; then tsinstalleddisp="Installed"; else tsinstalleddisp="Not Installed"; fi
   if [ $exitnode -eq 0 ]; then exitnodedisp="No"; elif [ $exitnode -eq 1 ]; then exitnodedisp="Yes"; fi
   if [ $advroutes -eq 0 ]; then advroutesdisp="No"; elif [ $advroutes -eq 1 ]; then advroutesdisp="Yes ($routes)"; fi
@@ -1001,7 +1449,7 @@ while true; do
   /opt/etc/init.d/S06tailscaled check >/dev/null 2>&1
   tsservice=$?
   if [ $tsservice -ne 0 ]; then tsservicedisp="Stopped"; else tsservicedisp="Started"; fi
-  
+
   tailscale status >/dev/null 2>&1
   tsconn=$?
   if [ $tsconn -ne 0 ]; then tsconndisp="Disconnected"; else tsconndisp="Connected"; fi
@@ -1015,8 +1463,14 @@ while true; do
 
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(2)${CClear} : Uninstall Tailscale Entware Package(s)${CClear}"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(3)${CClear} : Set Tailscale Operating Mode                 : ${CGreen}$tsoperatingmode${CClear}"
-  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(4)${CClear} : Configure this Router as Exit Node           : ${CGreen}$exitnodedisp${CClear}"
-  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(5)${CClear} : Advertise Routes on this router              : ${CGreen}$advroutesdisp${CClear}"
+  if [ "$tsoperatingmode" == "Custom" ]; then
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} |-${CClear}-- Edit Custom ${InvGreen}${CWhite}(O)${CClear}peration Mode Settings${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(4)${CClear}${CDkGray} : Configure this Router as Exit Node           : $exitnodedisp${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(5)${CClear}${CDkGray} : Advertise Routes on this router              : $advroutesdisp${CClear}"
+  else
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(4)${CClear} : Configure this Router as Exit Node           : ${CGreen}$exitnodedisp${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(5)${CClear} : Advertise Routes on this router              : ${CGreen}$advroutesdisp${CClear}"
+  fi
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo -e "${InvGreen} ${CClear}"
@@ -1033,44 +1487,52 @@ while true; do
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo ""
   if [ "$tsinstalleddisp" == "Installed" ]; then
-    read -p "Please select? (1-9, S/T/U/D/L/M, e=Exit): " SelectSlot
+    read -p "Please select? (1-9, S/T/U/D/O/L/M, e=Exit): " SelectSlot
   else
     read -p "Please select? (1-9, L/M, e=Exit): " SelectSlot
   fi
     case $SelectSlot in
 
       [Ss]) echo ""; startts;;
-      
+
       [Tt]) echo ""; stopts;;
-      
+
       [Uu]) echo ""; tsup;;
-      
+
       [Dd]) echo ""; tsdown;;
-      
+
       [Ll]) exec sh /jffs/scripts/tailmon.sh -noswitch;;
-      
+
       [Mm]) exec sh /jffs/scripts/tailmon.sh -screen -now;;
-    
+
+      [Oo]) if [ "$tsoperatingmode" == "Custom" ]; then
+      	      customconfig
+      	    fi ;;
+
       1) installts;;
-      
+
       2) uninstallts;;
-      
+
       3) if [ -f "/opt/bin/tailscale" ]; then operatingmode; fi;;
-      
-      4) if [ -f "/opt/bin/tailscale" ]; then exitnodetsl; fi;;
-      
-      5) if [ -f "/opt/bin/tailscale" ]; then advroutests; fi;;
+
+      4) if [ "$tsoperatingmode" != "Custom" ]; then
+           if [ -f "/opt/bin/tailscale" ]; then exitnodets; fi
+         fi ;;
+
+      5) if [ "$tsoperatingmode" != "Custom" ]; then
+           if [ -f "/opt/bin/tailscale" ]; then advroutests; fi
+         fi ;;
 
       6) installdependencies;;
 
       7) reinstalldependencies;;
-      
+
       8) vupdate;;
-      
+
       9) vuninstall;;
-      
+
       [Ee]) echo ""; timer=$timerloop; break;;
-      
+
     esac
 done
 
@@ -1079,7 +1541,7 @@ done
 # -------------------------------------------------------------------------------------------------------------------------
 # vconfig is a function that provides a UI to choose various options for tailmon
 
-vconfig() 
+vconfig()
 {
 
 # Grab the TAILMON config file and read it in
@@ -1087,7 +1549,7 @@ if [ -f $config ]; then
   source $config
 else
   initialsetup
-fi 
+fi
 
 while true; do
 
@@ -1096,7 +1558,7 @@ while true; do
   else
     keepalivedisp="Yes"
   fi
-  
+
   if [ $persistentsettings -eq 0 ]; then
     persistentsettingsdisp="No"
   else
@@ -1162,7 +1624,7 @@ while true; do
       2) timerloopconfig
       ;;
 
-      3) 
+      3)
         clear
         echo -e "${InvGreen} ${InvDkGray}${CWhite} Custom Event Log Size                                                                 ${CClear}"
         echo -e "${InvGreen} ${CClear}"
@@ -1193,7 +1655,7 @@ while true; do
         amtmevents
         source $config
       ;;
-      
+
       5)
         clear
         echo -e "${InvGreen} ${InvDkGray}${CWhite} Keep Settings Persistent on Tailscale Entware Updates                                 ${CClear}"
@@ -1202,7 +1664,7 @@ while true; do
         echo -e "${InvGreen} ${CClear} a regular basis to determine if settings are out-of-sync due to a possible${CClear}"
         echo -e "${InvGreen} ${CClear} Tailscale Entware upgrade? A common side-effect after updating the Tailscale${CClear}"
         echo -e "${InvGreen} ${CClear} Entware package is that it will remove your previously configured settings,${CClear}"
-        echo -e "${InvGreen} ${CClear} which could cause your router to no longer participate on your tailnet.${CClear}"        
+        echo -e "${InvGreen} ${CClear} which could cause your router to no longer participate on your tailnet.${CClear}"
         echo -e "${InvGreen} ${CClear}"
         echo -e "${InvGreen} ${CClear} (Default = No)${CClear}"
         echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
@@ -1221,7 +1683,6 @@ while true; do
         saveconfig
       ;;
 
-      
       [Ee]) echo -e "${CClear}\n[Exiting]"; sleep 2; resettimer=1; break ;;
 
     esac
@@ -1239,7 +1700,7 @@ while true; do
   clear
   echo -e "${InvGreen} ${InvDkGray}${CWhite} Update Utility                                                                        ${CClear}"
   echo -e "${InvGreen} ${CClear}"
-  echo -e "${InvGreen} ${CClear} This utility allows you to check, download and install updates"     
+  echo -e "${InvGreen} ${CClear} This utility allows you to check, download and install updates"
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo ""
   echo -e "Current Version: ${CGreen}$version${CClear}"
@@ -1400,7 +1861,7 @@ while true; do
         sleep 1
         return
       fi
-  fi      
+  fi
 done
 }
 
@@ -1455,6 +1916,7 @@ saveconfig()
      echo 'args="'"$args"'"'
      echo 'preargs="'"$preargs"'"'
      echo 'routes="'"$routes"'"'
+     echo 'customcmdline="'"$customcmdline"'"'
    } > $config
    echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON config has been updated." >> $logfile
 }
@@ -1473,7 +1935,7 @@ if [ $# -eq 0 ]
 fi
 
 # Check and see if an invalid commandline option is being used
-if [ "$1" == "-h" ] || [ "$1" == "-help" ] || [ "$1" == "-setup" ] || [ "$1" == "-bw" ] || [ "$1" == "-noswitch" ] || [ "$1" == "-screen" ] || [ "$1" == "-now" ] 
+if [ "$1" == "-h" ] || [ "$1" == "-help" ] || [ "$1" == "-setup" ] || [ "$1" == "-bw" ] || [ "$1" == "-noswitch" ] || [ "$1" == "-screen" ] || [ "$1" == "-now" ]
   then
     clear
   else
@@ -1557,7 +2019,7 @@ if [ "$1" == "-screen" ]
         fi
       else
         if [ "$bypassscreentimer" == "1" ]; then
-          sleep 1   
+          sleep 1
         else
           clear
           echo -e "${CClear}Connecting to existing ${CGreen}TAILMON v$version${CClear} SCREEN session...${CClear}"
@@ -1616,7 +2078,7 @@ if [ -f "/opt/bin/timeout" ] # If the timeout utility is available then use it a
     timeoutsec=""
     timeoutlng=""
 fi
-  
+
 while true; do
 
   # Grab the TAILMON config file and read it in
@@ -1624,18 +2086,18 @@ while true; do
     source $config
   else
     initialsetup
-  fi 
-  
+  fi
+
   if [ -f "/opt/bin/tailscale" ]; then
     tsinstalled=1
     clear
-    
+
     if [ $keepalive -eq 1 ]; then
       keepalivedisp="Yes"
     else
       keepalivedisp="No"
     fi
-    
+
     if [ "$amtmemailsuccess" == "0" ] && [ "$amtmemailfailure" == "0" ]; then
       amtmdisp="${CDkGray}Disabled        "
     elif [ "$amtmemailsuccess" == "1" ] && [ "$amtmemailfailure" == "0" ]; then
@@ -1647,7 +2109,7 @@ while true; do
     else
       amtmdisp="${CDkGray}Disabled        "
     fi
-  
+
     tzone=$(date +%Z)
     tzonechars=$(echo ${#tzone})
 
@@ -1666,19 +2128,19 @@ while true; do
     echo -e "                           ${CWhite}Operations Menu ${InvDkGray}            $tzspaces$(date) ${CClear}"
     echo -e "${InvGreen} ${CClear} ${CGreen}(S)${CClear}tart / S${CGreen}(T)${CClear}op Tailscale Service                   ${InvGreen} ${CClear} ${CGreen}(C)${CClear}onfiguration Menu / Main Setup Menu${CClear}"
     echo -e "${InvGreen} ${CClear} Tailscale Connection ${CGreen}(U)${CClear}p / ${CGreen}(D)${CClear}own                   ${InvGreen} ${CClear} ${CGreen}(L)${CClear}og Viewer / Trim Log Size (rows): ${CGreen}$logsize${CClear}"
-    echo -e "${InvGreen} ${CClear} Custom Service/Commandline Options (TBD)             ${InvGreen} ${CClear} ${CGreen}(K)${CClear}eep Tailscale Service Alive: ${CGreen}$keepalivedisp${CClear}"
+    echo -e "${InvGreen} ${CClear} Custom ${CGreen}(O)${CClear}peration Mode Settings                     ${InvGreen} ${CClear} ${CGreen}(K)${CClear}eep Tailscale Service Alive: ${CGreen}$keepalivedisp${CClear}"
     echo -e "${InvGreen} ${CClear} ${CGreen}(A)${CClear}MTM Email Notifications: $amtmdisp         ${InvGreen} ${CClear} Ti${CGreen}(M)${CClear}er Check Loop Interval: ${CGreen}${timerloop}sec${CClear}"
     echo -e "${InvGreen} ${CClear}${CDkGray}--------------------------------------------------------------------------------------------------------------${CClear}"
     echo ""
     echo -e "${InvDkGray}${CWhite}Tailscale Service:                                                                                             ${CClear}"
     /opt/etc/init.d/S06tailscaled check
     tsservice=$?
-    
+
     echo ""
     echo -e "${InvDkGray}${CWhite}Tailscale Connection Status:                                                                                   ${CClear}"
     tailscale status
     echo ""
-    
+
     if [ "$tsoperatingmode" == "Userspace" ]; then
       echo -e "${InvDkGray}${CWhite}Tailscale Service Options (Userspace Mode)                                                                     ${CClear}"
       echo -e "${CWhite}ARGS: ${CGreen}$args"
@@ -1688,18 +2150,26 @@ while true; do
       echo -e "${CWhite}PRECMD: ${CGreen}$precmd"
       echo -e "${CWhite}ARGS: ${CGreen}$args"
       echo -e "${CWhite}PREARGS: ${CGreen}$preargs"
+    elif [ "$tsoperatingmode" == "Custom" ]; then
+      echo -e "${InvDkGray}${CWhite}Tailscale Service Options (Custom Mode)                                                                        ${CClear}"
+      echo -e "${CWhite}PRECMD: ${CGreen}$precmd"
+      echo -e "${CWhite}ARGS: ${CGreen}$args"
+      echo -e "${CWhite}PREARGS: ${CGreen}$preargs"
     fi
-    
+
     echo ""
     echo -e "${InvDkGray}${CWhite}Tailscale Connection Commandline                                                                               ${CClear}"
-    
-    if [ $exitnode -eq 1 ]; then exitnodecmd="--advertise-exit-node "; else exitnodecmd=""; fi
-    if [ $advroutes -eq 1 ]; then advroutescmd="--advertise-routes=$routes"; else advroutescmd=""; fi
-        
-    echo -e "${CWhite}${CGreen}$exitnodecmd$advroutescmd${CClear}"
+
+    if [ "$tsoperatingmode" == "Custom" ]; then
+      echo -e "${CWhite}${CGreen}$customcmdline${CClear}"
+    else
+      if [ $exitnode -eq 1 ]; then exitnodecmd="--advertise-exit-node "; else exitnodecmd=""; fi
+      if [ $advroutes -eq 1 ]; then advroutescmd="--advertise-routes=$routes"; else advroutescmd=""; fi
+      echo -e "${CWhite}${CGreen}$exitnodecmd$advroutescmd${CClear}"
+    fi
     echo ""
     #read -rsp $'Press any key to continue...\n' -n1 key
-  
+
   else
     echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale binaries not found. Please investigate." >> $logfile
     tsinstalled=0
@@ -1708,39 +2178,43 @@ while true; do
 
   #Determine if S06tailscaled service settings have changed
   if [ $tsinstalled -eq 1 ] && [ $persistentsettings -eq 1 ]; then
-    
+
     s06args=$(cat /opt/etc/init.d/S06tailscaled | grep ^ARGS= | cut -d '=' -f 2-) 2>/dev/null
     tailmonargs="\"$args\""
-    
+
     if [ "$s06args" != "$tailmonargs" ]; then
       printf "\33[2K\r"
       printf "${CGreen}\r[Tailscale Service settings out-of-sync]"
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale Service settings are out-of-sync." >> $logfile
       sleep 3
-      
+
       tsdown
       stopts
-      
+
       #make mods to the S06tailscaled service for Userspace mode
       if [ "$tsoperatingmode" == "Userspace" ]; then
         applyuserspacemode
       #make mods to the S06tailscaled service for Kernel mode
       elif [ "$tsoperatingmode" == "Kernel" ]; then
         applykernelmode
+      #make mods to the S06tailscaled service for Custom mode
+      elif [ "$tsoperatingmode" == "Custom" ]; then
+        applycustommode
       fi
-      
+
       printf "\33[2K\r"
       printf "${CGreen}\r[Tailscale Service settings synced]"
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale Service settings synced." >> $logfile
       sleep 3
-      
+
       startts
       tsup
-      
+
       sleep 3
+      sendmessage 1 "Tailscale Service settings out-of-sync"
       resettimer=1
     fi
-    
+
   fi
 
   #Determine if Tailscale service is down
@@ -1757,6 +2231,7 @@ while true; do
 
       sleep 3
       resettimer=1
+      sendmessage 1 "Tailscale Service Restarted"
     fi
   fi
 
@@ -1772,7 +2247,7 @@ while true; do
       done
   fi
   resettimer=0
-  
+
 done
 
 exit 0
