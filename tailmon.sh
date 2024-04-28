@@ -12,7 +12,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="0.0.9"
+version="0.0.10"
 beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
@@ -784,7 +784,6 @@ while true; do
     *)
 
       if [ -f "/opt/bin/tailscale" ]; then
-
         if [ $restartts -eq 1 ]; then
           echo ""
           echo -e "Changing operating modes will require a restart of Tailscale. Restart now?"
@@ -974,6 +973,40 @@ exitnodets()
   fi
   saveconfig
   timer=$timerloop
+  
+  if [ "$exitnodedisp" == "No" ] && [ $exitnode -eq 1 ]; then
+    echo ""
+    echo -e "\nChanging exit node configuration options will require a restart of Tailscale. Restart now?"
+    if promptyn "[y/n]: "
+      then
+      echo ""
+      echo -e "\n${CGreen}Restarting Tailscale Service and Connection...${CClear}"
+      echo ""
+
+      tsdown
+      stopts
+      startts
+      tsup
+      
+    fi
+  fi
+  
+  if [ "$exitnodedisp" == "Yes" ] && [ $exitnode -eq 0 ]; then
+    echo ""
+    echo -e "\nChanging exit node configuration options will require a restart of Tailscale. Restart now?"
+    if promptyn "[y/n]: "
+      then
+      echo ""
+      echo -e "\n${CGreen}Restarting Tailscale Service and Connection...${CClear}"
+      echo ""
+
+      tsdown
+      stopts
+      startts
+      tsup
+      
+    fi
+  fi
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -1033,6 +1066,39 @@ advroutests()
   fi
   timer=$timerloop
 
+  if [ "$advroutesdisp" == "No" ] && [ $advroutes -eq 1 ]; then
+    echo ""
+    echo -e "\nChanging exit node configuration options will require a restart of Tailscale. Restart now?"
+    if promptyn "[y/n]: "
+      then
+      echo ""
+      echo -e "\n${CGreen}Restarting Tailscale Service and Connection...${CClear}"
+      echo ""
+
+      tsdown
+      stopts
+      startts
+      tsup
+      
+    fi
+  fi
+  
+  if [ "$advroutesdisp" == "Yes" ] && [ $advroutes -eq 0 ]; then
+    echo ""
+    echo -e "\nChanging exit node configuration options will require a restart of Tailscale. Restart now?"
+    if promptyn "[y/n]: "
+      then
+      echo ""
+      echo -e "\n${CGreen}Restarting Tailscale Service and Connection...${CClear}"
+      echo ""
+
+      tsdown
+      stopts
+      startts
+      tsup
+      
+    fi
+  fi
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -2231,6 +2297,7 @@ while true; do
       tsup
 
       sleep 3
+      echo ""
       sendmessage 1 "Tailscale Service settings out-of-sync"
       resettimer=1
     fi
@@ -2251,6 +2318,7 @@ while true; do
 
       sleep 3
       resettimer=1
+      echo ""
       sendmessage 1 "Tailscale Service Restarted"
     fi
   fi
