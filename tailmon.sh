@@ -897,6 +897,7 @@ installdependencies()
       echo -e "\n${CClear}[Exiting]"
       echo ""
       sleep 2
+      exit 0
     fi
   fi
 }
