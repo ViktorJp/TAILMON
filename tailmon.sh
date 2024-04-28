@@ -80,6 +80,26 @@ promptyn()
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
+# Spinner is a script that provides a small indicator on the screen to show script activity
+
+spinner() 
+{
+  spins=$1
+
+  spin=0
+  totalspins=$((spins / 4))
+  while [ $spin -le $totalspins ]; do
+    for spinchar in / - \\ \|; do
+      printf "\r$spinchar"
+      sleep 1
+    done
+    spin=$((spin+1))
+  done
+
+  printf "\r"
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
 # Preparebar and Progressbar is a script that provides a nice progressbar to show script activity
 
 preparebar()
