@@ -1,4 +1,4 @@
-v1.0.0   - (TBA)
+v1.0.0   - (April 29, 2024)
          - MAJOR: TAILMON is officially released today! Tailscale is a free and open source service, based on
            WireGuard®, that helps users build no-hassle virtual private networks. Once you’ve created a Tailscale
            network (tailnet), you can securely access services and devices on that tailnet from anywhere in the
