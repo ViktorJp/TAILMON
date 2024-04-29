@@ -1,7 +1,7 @@
 # TAILMON v1.0.0
 Asus-Merlin Tailscale Installer, Configurator and Monitor
 
-![image](https://github.com/ViktorJp/TAILMON/assets/97465574/99e62a71-f91a-4f56-83c7-5bd452e33a0e)
+![image](https://github.com/ViktorJp/TAILMON/assets/97465574/8a1de92b-3d99-4761-9365-6754399262fd)
 
 **Executive Summary:** **Tailscale** is a free and open source service, based on WireGuard®, that helps users build no-hassle virtual private networks. Once you’ve created a Tailscale network (tailnet), you can securely access services and devices on that tailnet from anywhere in the world.  **TAILMON** is a posix shell script that assists with the install, configuration and monitoring of Tailscale, running on your Asus-Merlin FW router.
 
