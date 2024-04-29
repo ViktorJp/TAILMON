@@ -12,7 +12,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="0.0.10"
+version="0.0.11"
 beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
@@ -29,7 +29,7 @@ advroutes=1
 persistentsettings=0
 tsoperatingmode="Userspace"
 precmd=""
-args="--tun=userspace-networking --state=/opt/var/tailscaled.state"
+args="--tun=userspace-networking --state=/opt/var/tailscaled.state --statedir=/opt/var/lib/tailscale"
 preargs="nohup"
 routes="$(nvram get lan_ipaddr | cut -d"." -f1-3).0/24"
 customcmdline=""
@@ -242,7 +242,7 @@ expressinstall()
 
     tsoperatingmode="Userspace"
     precmd=""
-    args="--tun=userspace-networking --state=/opt/var/tailscaled.state"
+    args="--tun=userspace-networking --state=/opt/var/tailscaled.state --statedir=/opt/var/lib/tailscale"
     preargs="nohup"
     saveconfig
 
@@ -253,7 +253,7 @@ expressinstall()
     #make mods to the S06tailscaled service for Userspace mode
     if [ "$tsoperatingmode" == "Userspace" ]; then
 
-      sed -i "s/^ARGS=.*/ARGS=\"--tun=userspace-networking\ --state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
+      sed -i "s/^ARGS=.*/ARGS=\"--tun=userspace-networking\ --state=\/opt\/var\/tailscaled.state\ --statedir=\/opt\/var\/lib\/tailscale\"/" "/opt/etc/init.d/S06tailscaled"
       sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
       sed -i -e '/^PRECMD=/d' "/opt/etc/init.d/S06tailscaled"
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Userspace Mode settings have been applied." >> $logfile
@@ -612,7 +612,7 @@ while true; do
     1)
       echo ""
       echo -e "${CClear}When entering a custom statement, please do not use quotes or other abnormal characters."
-      echo -e "${CClear}Example: --tun=userspace-networking --state=/opt/var/tailscaled.state"
+      echo -e "${CClear}Example: --tun=userspace-networking --state=/opt/var/tailscaled.state --statedir=/opt/var/lib/tailscale"
       echo ""
       read -p "Enter new ARGS= " EnterNewArgs
       tsoperatingmode="Custom"
@@ -746,7 +746,7 @@ while true; do
       sleep 3
       tsoperatingmode="Userspace"
       precmd=""
-      args="--tun=userspace-networking --state=/opt/var/tailscaled.state"
+      args="--tun=userspace-networking --state=/opt/var/tailscaled.state --statedir=/opt/var/lib/tailscale"
       preargs="nohup"
       customcmdline=""
       saveconfig
@@ -759,7 +759,7 @@ while true; do
       sleep 3
       tsoperatingmode="Kernel"
       precmd="modprobe tun"
-      args="--state=/opt/var/tailscaled.state"
+      args="--state=/opt/var/tailscaled.state --statedir=/opt/var/lib/tailscale"
       preargs="nohup"
       customcmdline=""
       saveconfig
@@ -772,7 +772,7 @@ while true; do
       sleep 3
       tsoperatingmode="Custom"
       precmd="modprobe tun"
-      args="--state=/opt/var/tailscaled.state"
+      args="--state=/opt/var/tailscaled.state --statedir=/opt/var/lib/tailscale"
       preargs="nohup"
       if [ $exitnode -eq 1 ]; then exitnodecmd="--advertise-exit-node "; else exitnodecmd=""; fi
       if [ $advroutes -eq 1 ]; then advroutescmd="--advertise-routes=$routes"; else advroutescmd=""; fi
@@ -850,7 +850,7 @@ done
 
 applyuserspacemode()
 {
-  sed -i "s/^ARGS=.*/ARGS=\"--tun=userspace-networking\ --state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
+  sed -i "s/^ARGS=.*/ARGS=\"--tun=userspace-networking\ --state=\/opt\/var\/tailscaled.state\ --statedir=\/opt\/var\/lib\/tailscale\"/" "/opt/etc/init.d/S06tailscaled"
   sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
   sed -i -e '/^PRECMD=/d' "/opt/etc/init.d/S06tailscaled"
 
@@ -880,7 +880,7 @@ applykernelmode()
   else
     sed -i "s/^PRECMD=.*/PRECMD=\"modprobe tun\"/" "/opt/etc/init.d/S06tailscaled"
   fi
-  sed -i "s/^ARGS=.*/ARGS=\"--state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
+  sed -i "s/^ARGS=.*/ARGS=\"--state=\/opt\/var\/tailscaled.state\ --statedir=\/opt\/var\/lib\/tailscale\"/" "/opt/etc/init.d/S06tailscaled"
   sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
 
   #modify/create firewall-start
@@ -914,7 +914,7 @@ applycustommode()
   else
     sed -i "s/^PRECMD=.*/PRECMD=\"modprobe tun\"/" "/opt/etc/init.d/S06tailscaled"
   fi
-  sed -i "s/^ARGS=.*/ARGS=\"--state=\/opt\/var\/tailscaled.state\"/" "/opt/etc/init.d/S06tailscaled"
+  sed -i "s/^ARGS=.*/ARGS=\"--state=\/opt\/var\/tailscaled.state\ --statedir=\/opt\/var\/lib\/tailscale\"/" "/opt/etc/init.d/S06tailscaled"
   sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
 
   #modify/create firewall-start
