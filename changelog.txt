@@ -1,3 +1,8 @@
+v1.0.1   - (April 29, 2024)
+         - PATCH: Straight out of the gate, and @ColinTaylor makes a great observation that the uninstaller is
+           still referring to an older Tailscale directory structure that was recently changed. Thanks Colin! This
+           has been patched! :)
+
 v1.0.0   - (April 29, 2024)
          - MAJOR: TAILMON is officially released today! Tailscale is a free and open source service, based on
            WireGuard®, that helps users build no-hassle virtual private networks. Once you’ve created a Tailscale
