@@ -12,7 +12,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.0.0"
+version="1.0.1"
 beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
@@ -390,7 +390,7 @@ uninstallts()
           opkg remove tailscale
           echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Entware package removed." >> $logfile
           rm -f /opt/var/tailscaled.state >/dev/null 2>&1
-          rm -r /opt/var/tailscale >/dev/null 2>&1
+          rm -r /opt/var/lib/tailscale >/dev/null 2>&1
         echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale files and folders removed." >> $logfile
           echo ""
           read -rsp $'Press any key to continue...\n' -n1 key
@@ -1915,7 +1915,7 @@ while true; do
               echo ""
               opkg remove tailscale
               rm -f /opt/var/tailscaled.state >/dev/null 2>&1
-              rm -r /opt/var/tailscale >/dev/null 2>&1
+              rm -r /opt/var/lib/tailscale >/dev/null 2>&1
               echo ""
               read -rsp $'Press any key to continue...\n' -n1 key
               echo ""
