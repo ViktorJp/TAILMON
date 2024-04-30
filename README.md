@@ -1,4 +1,4 @@
-# TAILMON v1.0.0
+# TAILMON v1.0.1
 Asus-Merlin Tailscale Installer, Configurator and Monitor
 
 ![image](https://github.com/ViktorJp/TAILMON/assets/97465574/8a1de92b-3d99-4761-9365-6754399262fd)
