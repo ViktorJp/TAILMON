@@ -12,7 +12,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.0.1"
+version="1.0.2"
 beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
@@ -2074,7 +2074,10 @@ fi
 # Check to see if the setup option is being called
 if [ "$1" == "-setup" ]
   then
-    #logoNM
+    # Create the necessary folder/file structure for tailmon under /jffs/addons
+    if [ ! -d "/jffs/addons/tailmon.d" ]; then
+      mkdir -p "/jffs/addons/tailmon.d"
+    fi
     vsetup
     exit 0
 fi
