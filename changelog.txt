@@ -1,3 +1,9 @@
+v1.0.2   - (April 30, 2024)
+         - PATCH: Thanks to @XIII, for finding an inconsistency that we hadn't stumbled across yet. After an
+           install, when running tailmon.sh -setup immediately after resulted in errors showing that it was not
+           able to write the .log and .cfg files into their /jffs/addons/tailmon.d folder, because that folder
+           gets created upon running tailmon.sh by itself. Emergency fix has been patched! Thanks!
+
 v1.0.1   - (April 29, 2024)
          - PATCH: Straight out of the gate, and @ColinTaylor makes a great observation that the uninstaller is
            still referring to an older Tailscale directory structure that was recently changed. Thanks Colin! This

@@ -1,7 +1,8 @@
 TO-DO
 -----
 * Build a services-start option to allow for auto-start after router reboot
-
+* Show tailscale binary version in UI
+* Provide for a method to update the Tailscale binaries to the latest version
 
 DONE
 ----
