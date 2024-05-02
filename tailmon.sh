@@ -12,7 +12,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.0.2"
+version="1.0.6"
 beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
@@ -22,6 +22,7 @@ tsinstalled=0
 keepalive=0
 timerloop=60
 logsize=2000
+autostart=0
 amtmemailsuccess=0
 amtmemailfailure=0
 exitnode=0
@@ -151,7 +152,6 @@ progressbaroverride()
           [Tt]) stopts;;
           [Uu]) tsup;;
           [Vv]) editroutes;;
-          [Xx]) uninstallts;;
           *) timer=$timerloop;;
       esac
   fi
@@ -501,6 +501,148 @@ tsdown()
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection stopped." >> $logfile
       sleep 3
       resettimer=1
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# Force Tailscale Binary update
+
+tsupdate()
+{
+
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Updating Tailscale Binary]"
+      sleep 3
+      printf "\33[2K\r"
+
+      echo -e "${CGreen}Messages:${CClear}"
+      echo ""
+
+      echo "Executing: tailscale update"
+      echo ""
+      tailscale update
+      
+      echo ""
+      echo -e "Restart Tailscale?"
+      if promptyn "[y/n]: "
+      	then
+      	echo -e "\n"
+        printf "\33[2K\r"
+        printf "${CGreen}\r[Restarting Tailscale Service/Connection]${CClear}"
+        sleep 3
+
+        tsdown
+        stopts
+
+        #make mods to the S06tailscaled service for Userspace mode
+        if [ "$tsoperatingmode" == "Userspace" ]; then
+          applyuserspacemode
+        #make mods to the S06tailscaled service for Kernel mode
+        elif [ "$tsoperatingmode" == "Kernel" ]; then
+          applykernelmode
+        #make mods to the S06tailscaled service for Custom mode
+        elif [ "$tsoperatingmode" == "Custom" ]; then
+          applycustommode
+        fi
+
+        startts
+        tsup
+
+        printf "\33[2K\r"
+        printf "${CGreen}\r[Tailscale Service/Connection Successfully Restarted]${CClear}"
+        echo -e "\n"
+        read -rsp $'Press any key to continue...\n' -n1 key
+      fi
+        
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale binary updated to latest available version." >> $logfile
+      resettimer=1
+
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# autostart lets you enable the ability for tailmon to autostart after a router reboot
+
+autostart()
+{
+
+while true; do
+  clear
+  echo -e "${InvGreen} ${InvDkGray}${CWhite} Reboot Protection                                                                     ${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} Please indicate below if you would like to enable TAILMON to autostart after a"
+  echo -e "${InvGreen} ${CClear} router reboot. This will ensure continued, uninterrupted Tailscale monitoring."
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} (Default = Disabled)"
+  echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  if [ "$autostart" == "0" ]; then
+    echo -e "${InvGreen} ${CClear} Current: ${CRed}Disabled${CClear}"
+  elif [ "$autostart" == "1" ]; then
+    echo -e "${InvGreen} ${CClear} Current: ${CGreen}Enabled${CClear}"
+  fi
+  echo ""
+  read -p 'Enable Reboot Protection? (0=No, 1=Yes, e=Exit): ' autostart1
+
+  if [ "$autostart1" == "" ] || [ -z "$autostart1" ]; then autostart=0; else autostart="$autostart1"; fi # Using default value on enter keypress
+
+  if [ "$autostart" == "0" ]; then
+
+    if [ -f /jffs/scripts/post-mount ]; then
+      sed -i -e '/tailmon.sh/d' /jffs/scripts/post-mount
+      autostart=0
+      echo ""
+      echo -e "${CGreen}[Modifying POST-MOUNT file]..."
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Reboot Protection Disabled" >> $logfile
+      saveconfig
+      sleep 2
+      timer=$timerloop
+      break
+    fi
+
+  elif [ "$autostart" == "1" ]; then
+
+    if [ -f /jffs/scripts/post-mount ]; then
+
+      if ! grep -q -F "(sleep 30 && /jffs/scripts/tailmon.sh -screen) & # Added by tailmon" /jffs/scripts/post-mount; then
+        echo "(sleep 30 && /jffs/scripts/tailmon.sh -screen) & # Added by tailmon" >> /jffs/scripts/post-mount
+        autostart=1
+        echo ""
+        echo -e "${CGreen}[Modifying POST-MOUNT file]..."
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Reboot Protection Enabled" >> $logfile
+        saveconfig
+        sleep 2
+        timer=$timerloop
+        break
+      else
+        autostart=1
+        saveconfig
+        sleep 1
+      fi
+
+    else
+      echo "#!/bin/sh" > /jffs/scripts/post-mount
+      echo "" >> /jffs/scripts/post-mount
+      echo "(sleep 30 && /jffs/scripts/tailmon.sh -screen) & # Added by tailmon" >> /jffs/scripts/post-mount
+      chmod 755 /jffs/scripts/post-mount
+      autostart=1
+      echo ""
+      echo -e "${CGreen}[Modifying POST-MOUNT file]..."
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Reboot Protection Enabled" >> $logfile
+      saveconfig
+      sleep 2
+      timer=$timerloop
+      break
+    fi
+
+  elif [ "$autostart" == "e" ]; then
+  timer=$timerloop
+  break
+
+  else
+    autostart=0
+    saveconfig
+  fi
+
+done
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -1520,6 +1662,8 @@ while true; do
   if [ -f "/opt/bin/tailscale" ]; then tsinstalleddisp="Installed"; else tsinstalleddisp="Not Installed"; fi
   if [ $exitnode -eq 0 ]; then exitnodedisp="No"; elif [ $exitnode -eq 1 ]; then exitnodedisp="Yes"; fi
   if [ $advroutes -eq 0 ]; then advroutesdisp="No"; elif [ $advroutes -eq 1 ]; then advroutesdisp="Yes ($routes)"; fi
+  tsver=$(tailscale version | awk 'NR==1 {print $1}') >/dev/null 2>&1
+  if [ -z "$tsver" ]; then tsver="0.00"; fi
 
   echo -e "${InvGreen} ${InvDkGray}${CWhite} TAILMON Main Setup and Configuration Menu                                             ${CClear}"
   echo -e "${InvGreen} ${CClear}"
@@ -1545,6 +1689,7 @@ while true; do
   if [ "$tsinstalleddisp" == "Installed" ]; then
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} |-${CClear}-- ${InvGreen}${CWhite}(S)${CClear}tart / S${InvGreen}${CWhite}(T)${CClear}op Tailscale Service${CClear}           |--- ${CGreen}$tsservicedisp${CClear}"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} |-${CClear}-- ${InvGreen}${CWhite}(U)${CClear}p / ${InvGreen}${CWhite}(D)${CClear}own Tailscale Connection${CClear}           |--- ${CGreen}$tsconndisp${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} |-${CClear}-- U${InvGreen}${CWhite}(P)${CClear}date Tailscale Binary to latest version  |--- ${CGreen}v$tsver${CClear}"
   fi
 
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(2)${CClear} : Uninstall Tailscale Entware Package(s)${CClear}"
@@ -1573,7 +1718,11 @@ while true; do
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo ""
   if [ "$tsinstalleddisp" == "Installed" ]; then
-    read -p "Please select? (1-9, S/T/U/D/O/L/M, e=Exit): " SelectSlot
+  	if [ "$tsoperatingmode" == "Custom" ]; then
+      read -p "Please select? (1-9, S/T/U/D/P/O/L/M, e=Exit): " SelectSlot
+    else
+      read -p "Please select? (1-9, S/T/U/D/P/L/M, e=Exit): " SelectSlot
+    fi
   else
     read -p "Please select? (1-9, L/M, e=Exit): " SelectSlot
   fi
@@ -1594,6 +1743,8 @@ while true; do
       [Oo]) if [ "$tsoperatingmode" == "Custom" ]; then
       	      customconfig
       	    fi ;;
+      	    
+      [Pp]) echo ""; tsupdate;;
 
       1) installts;;
 
@@ -1662,6 +1813,12 @@ while true; do
   else
     amtmemailsuccfaildisp="Disabled"
   fi
+  
+  if [ $autostart -eq 0 ]; then
+    autostartdisp="Disabled"
+  elif [ $autostart -eq 1 ]; then
+    autostartdisp="Enabled"
+  fi
 
   clear
   echo -e "${InvGreen} ${InvDkGray}${CWhite} TAILMON Configuration Option                                                          ${CClear}"
@@ -1675,12 +1832,13 @@ while true; do
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(3)${CClear} : Custom Event Log size (rows)                 : ${CGreen}$logsize"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(4)${CClear} : AMTM Email Notifications on Success/Failure  : ${CGreen}$amtmemailsuccfaildisp"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(5)${CClear} : Keep settings on Tailscale Entware updates   : ${CGreen}$persistentsettingsdisp"
+  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(6)${CClear} : Autostart TAILMON on Reboot                  : ${CGreen}$autostartdisp"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} | ${CClear}"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(e)${CClear} : Exit${CClear}"
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo ""
-  read -p "Please select? (1-5, e=Exit): " SelectSlot
+  read -p "Please select? (1-6, e=Exit): " SelectSlot
     case $SelectSlot in
       1)
         clear
@@ -1768,6 +1926,8 @@ while true; do
         fi
         saveconfig
       ;;
+
+      6) autostart;;
 
       [Ee]) echo -e "${CClear}\n[Exiting]"; sleep 2; resettimer=1; break ;;
 
@@ -1887,6 +2047,7 @@ while true; do
         #Remove and uninstall files/directories
         rm -f -r /jffs/addons/tailmon.d >/dev/null 2>&1
         rm -f /jffs/scripts/tailmon.sh >/dev/null 2>&1
+        sed -i -e '/tailmon.sh/d' /jffs/scripts/post-mount >/dev/null 2>&1
         echo ""
         echo -e "\n${CGreen}TAILMON has been uninstalled...${CClear}"
         echo ""
@@ -1992,6 +2153,7 @@ saveconfig()
    { echo 'keepalive='$keepalive
      echo 'timerloop='$timerloop
      echo 'logsize='$logsize
+     echo 'autostart='$autostart
      echo 'amtmemailsuccess='$amtmemailsuccess
      echo 'amtmemailfailure='$amtmemailfailure
      echo 'tsoperatingmode="'"$tsoperatingmode"'"'
@@ -2211,17 +2373,27 @@ while true; do
     #Display tailmon Update Notifications
     if [ "$UpdateNotify" != "0" ]; then echo -e "$UpdateNotify"; fi
 
+    tsver=$(tailscale version | awk 'NR==1 {print $1}') >/dev/null 2>&1
+    if [ -z "$tsver" ]; then tsver="0.00"; fi
+
     #Display tailmon client header
     echo -en "${InvGreen} ${InvDkGray} TAILMON - v"
     printf "%-8s" $version
     echo -e "                           ${CWhite}Operations Menu ${InvDkGray}            $tzspaces$(date) ${CClear}"
     echo -e "${InvGreen} ${CClear} ${CGreen}(S)${CClear}tart / S${CGreen}(T)${CClear}op Tailscale Service                   ${InvGreen} ${CClear} ${CGreen}(C)${CClear}onfiguration Menu / Main Setup Menu${CClear}"
     echo -e "${InvGreen} ${CClear} Tailscale Connection ${CGreen}(U)${CClear}p / ${CGreen}(D)${CClear}own                   ${InvGreen} ${CClear} ${CGreen}(L)${CClear}og Viewer / Trim Log Size (rows): ${CGreen}$logsize${CClear}"
-    echo -e "${InvGreen} ${CClear} Custom ${CGreen}(O)${CClear}peration Mode Settings                     ${InvGreen} ${CClear} ${CGreen}(K)${CClear}eep Tailscale Service Alive: ${CGreen}$keepalivedisp${CClear}"
+    
+    if [ "$tsoperatingmode" == "Custom" ]; then
+      echo -e "${InvGreen} ${CClear} Custom ${CGreen}(O)${CClear}peration Mode Settings                     ${InvGreen} ${CClear} ${CGreen}(K)${CClear}eep Tailscale Service Alive: ${CGreen}$keepalivedisp${CClear}"
+    else
+      echo -e "${InvGreen} ${CClear} ${CDkGray}Custom (O)peration Mode Settings${CClear}                     ${InvGreen} ${CClear} ${CGreen}(K)${CClear}eep Tailscale Service Alive: ${CGreen}$keepalivedisp${CClear}"
+    fi
     echo -e "${InvGreen} ${CClear} ${CGreen}(A)${CClear}MTM Email Notifications: $amtmdisp         ${InvGreen} ${CClear} Ti${CGreen}(M)${CClear}er Check Loop Interval: ${CGreen}${timerloop}sec${CClear}"
     echo -e "${InvGreen} ${CClear}${CDkGray}--------------------------------------------------------------------------------------------------------------${CClear}"
     echo ""
-    echo -e "${InvDkGray}${CWhite}Tailscale Service:                                                                                             ${CClear}"
+    echo -en "${InvDkGray}${CWhite}Tailscale Service v"
+    printf "%-8s" $tsver
+    echo -e "                                                                                    ${CClear}"
     /opt/etc/init.d/S06tailscaled check
     tsservice=$?
 
