@@ -1,3 +1,20 @@
+v1.0.6   - (May 1, 2024)
+         - PATCH: The Tailscale binary version is now shown in the UI on the Tailscale Service bar/header.
+         - PATCH: The "Custom (O)peration Mode Settings" item in the Operations Menu is now grayed out if the
+           "Custom" Operations Mode isn't selected. This item will be non-responsive unless "Custom" has been
+           enabled, which will then open the Custom Operation Mode menu, allowing for full control over the
+           Tailscale service switches and connection commandline switches.
+         - PATCH: A new menu item in the Setup/Configuration menu will now show up if Tailscale has been found
+           to be installed. The new option U(P)date will run the "tailscale update" command, and present the
+           user with the choice to update to the latest available stable Tailscale version. After the update
+           finishes, TAILMON will ask if you would like to reset the Tailscale service/connection (highly
+           recommended), as this action will also sync previous switch settings which are wiped out when an
+           update is installed.
+         - PATCH: Another new menu item under the Custom Configuration menu has been added to provide TAILMON
+           with a reboot protection option. Item #6 under this menu will add a command to your post-mount file
+           and will launch TAILMON into its own Screen session, providing continued monitoring even after a
+           router reboot occurs.
+
 v1.0.2   - (April 30, 2024)
          - PATCH: Thanks to @XIII, for finding an inconsistency that we hadn't stumbled across yet. After an
            install, when running tailmon.sh -setup immediately after resulted in errors showing that it was not
