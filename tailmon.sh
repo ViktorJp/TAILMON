@@ -403,6 +403,8 @@ uninstallts()
           rm -r /opt/var/lib/tailscale >/dev/null 2>&1
           rm -r /var/run/tailscale >/dev/null 2>&1
           rm -r /var/lib/tailscale >/dev/null 2>&1
+          rm -r /opt/var/run/tailscale >/dev/null 2>&1
+          rm -r /opt/var/lib/tailscale >/dev/null 2>&1
 
           echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale files and folders removed." >> $logfile
           echo ""
@@ -2092,6 +2094,8 @@ while true; do
               rm -r /opt/var/lib/tailscale >/dev/null 2>&1
               rm -r /var/run/tailscale >/dev/null 2>&1
               rm -r /var/lib/tailscale >/dev/null 2>&1
+              rm -r /opt/var/run/tailscale >/dev/null 2>&1
+              rm -r /opt/var/lib/tailscale >/dev/null 2>&1
               echo ""
               read -rsp $'Press any key to continue...\n' -n1 key
               echo ""
