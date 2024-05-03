@@ -1,3 +1,13 @@
+v1.0.8   - (May 3, 2024)
+         - PATCH: Increased the timer by a few seconds after the Tailscale service is started to hopefully
+           reduce any possible error messages you would see when issuing a "tailscale up" command. It's a
+           theory that when the service is started and not completely ready to go yet, that when the "up"
+           command is given, that this may cause an benign unresponsive tailscale error message, and would
+           require a successive "up" command to get it going.
+         - PATCH: Included a few more Tailscale folders in the uninstall routine, as the v1.64 version of
+           Tailscale adds a couple of different locations where files are being kept. These will all now be
+           cleaned up after any uninstall of the Tailscale package.
+
 v1.0.6   - (May 1, 2024)
          - PATCH: The Tailscale binary version is now shown in the UI on the Tailscale Service bar/header.
          - PATCH: The "Custom (O)peration Mode Settings" item in the Operations Menu is now grayed out if the
