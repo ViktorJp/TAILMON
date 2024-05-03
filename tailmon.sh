@@ -12,7 +12,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.0.6"
+version="1.0.8"
 beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
@@ -83,7 +83,7 @@ promptyn()
 # -------------------------------------------------------------------------------------------------------------------------
 # Spinner is a script that provides a small indicator on the screen to show script activity
 
-spinner() 
+spinner()
 {
   spins=$1
 
@@ -140,10 +140,10 @@ progressbaroverride()
 
   if [ $key_press ]; then
       case $key_press in
+          [Aa]) vconfig;;
           [Cc]) vsetup;;
           [Dd]) tsdown;;
           [Ee]) echo -e "${CClear}\n"; exit 0;;
-          [Ii]) installts;;
           [Kk]) vconfig;;
           [Ll]) vlogs;;
           [Mm]) timerloopconfig;;
@@ -151,7 +151,6 @@ progressbaroverride()
           [Ss]) startts;;
           [Tt]) stopts;;
           [Uu]) tsup;;
-          [Vv]) editroutes;;
           *) timer=$timerloop;;
       esac
   fi
@@ -366,32 +365,46 @@ uninstallts()
         if [ -d "/opt" ]; then # Does entware exist? If yes proceed, if no error out.
           echo ""
           echo -e "\n${CGreen}Shutting down Tailscale...${CClear}"
+
           tailscale logout
           tailscale down
+
           echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection shut down and logged out." >> $logfile
+
           /opt/etc/init.d/S06tailscaled stop
+
           echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service shut down." >> $logfile
           echo ""
           echo -e "\n${CGreen}Removing firewall-start entries...${CClear}"
           #remove firewall-start entry if found
+
           if [ -f /jffs/scripts/firewall-start ]; then
             if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
               sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
               echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: firewall-start entries removed." >> $logfile
             fi
           fi
+
           echo ""
           echo -e "\n${CGreen}Updating Entware Packages...${CClear}"
           echo ""
+
           opkg update
+
           echo ""
           echo -e "${CGreen}Uninstalling Entware Tailscale Package(s)...${CClear}"
           echo ""
+
           opkg remove tailscale
+
           echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Entware package removed." >> $logfile
+
           rm -f /opt/var/tailscaled.state >/dev/null 2>&1
           rm -r /opt/var/lib/tailscale >/dev/null 2>&1
-        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale files and folders removed." >> $logfile
+          rm -r /var/run/tailscale >/dev/null 2>&1
+          rm -r /var/lib/tailscale >/dev/null 2>&1
+
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale files and folders removed." >> $logfile
           echo ""
           read -rsp $'Press any key to continue...\n' -n1 key
         else
@@ -428,7 +441,7 @@ startts()
       /opt/etc/init.d/S06tailscaled start
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service started." >> $logfile
       echo ""
-      sleep 3
+      sleep 5
       resettimer=1
 }
 
@@ -520,12 +533,12 @@ tsupdate()
       echo "Executing: tailscale update"
       echo ""
       tailscale update
-      
+
       echo ""
       echo -e "Restart Tailscale?"
       if promptyn "[y/n]: "
-      	then
-      	echo -e "\n"
+        then
+        echo -e "\n"
         printf "\33[2K\r"
         printf "${CGreen}\r[Restarting Tailscale Service/Connection]${CClear}"
         sleep 3
@@ -552,7 +565,7 @@ tsupdate()
         echo -e "\n"
         read -rsp $'Press any key to continue...\n' -n1 key
       fi
-        
+
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale binary updated to latest available version." >> $logfile
       resettimer=1
 
@@ -820,7 +833,7 @@ while true; do
     ;;
 
     *)
-    
+
       if [ -f "/opt/bin/tailscale" ]; then
         if [ $restartts -eq 1 ]; then
           echo ""
@@ -835,7 +848,7 @@ while true; do
             stopts
             startts
             tsup
-            
+
           fi
         fi
       fi
@@ -959,7 +972,7 @@ while true; do
               echo -e "Would you like to customize your Tailscale settings now?"
               if promptyn "[y/n]: "
               then
-              	customconfig
+                customconfig
               fi
             fi
 
@@ -1115,7 +1128,7 @@ exitnodets()
   fi
   saveconfig
   timer=$timerloop
-  
+
   if [ "$exitnodedisp" == "No" ] && [ $exitnode -eq 1 ]; then
     echo ""
     echo -e "\nChanging exit node configuration options will require a restart of Tailscale. Restart now?"
@@ -1129,10 +1142,10 @@ exitnodets()
       stopts
       startts
       tsup
-      
+
     fi
   fi
-  
+
   if [ "$exitnodedisp" == "Yes" ] && [ $exitnode -eq 0 ]; then
     echo ""
     echo -e "\nChanging exit node configuration options will require a restart of Tailscale. Restart now?"
@@ -1146,7 +1159,7 @@ exitnodets()
       stopts
       startts
       tsup
-      
+
     fi
   fi
 }
@@ -1221,10 +1234,10 @@ advroutests()
       stopts
       startts
       tsup
-      
+
     fi
   fi
-  
+
   if [ "$advroutesdisp" == "Yes" ] && [ $advroutes -eq 0 ]; then
     echo ""
     echo -e "\nChanging exit node configuration options will require a restart of Tailscale. Restart now?"
@@ -1238,7 +1251,7 @@ advroutests()
       stopts
       startts
       tsup
-      
+
     fi
   fi
 }
@@ -1305,7 +1318,7 @@ while true; do
          read -rsp $'Press any key to acknowledge...\n' -n1 key
          ;;
 
-      [Ee]) 
+      [Ee])
          saveconfig
          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: AMTM Email notification configuration saved" >> $logfile
          timer=$timerloop
@@ -1334,9 +1347,9 @@ _DownloadCEMLibraryFile_()
        install) msgStr="Installing" ;;
              *) return 1 ;;
    esac
-   
+
    printf "\33[2K\r"
-   printf "${CGreen}\r[INFO: ${msgStr} the shared AMTM email library script file to support email notifications...]${CClear}" 
+   printf "${CGreen}\r[INFO: ${msgStr} the shared AMTM email library script file to support email notifications...]${CClear}"
    echo -e "$(date +'%b %d %Y %X') $(nvram get lan_hostname) TAILMON[$$] - INFO: ${msgStr} the shared AMTM email library script file to support email notifications..." >> $logfile
 
    mkdir -m 755 -p "$CUSTOM_EMAIL_LIBDir"
@@ -1396,7 +1409,7 @@ _SendEMailNotification_()
    if [ "$retCode" -eq 0 ]
    then
      printf "\33[2K\r"
-     printf "${CGreen}\r[Email notification was sent successfully ($2)]${CClear}" 
+     printf "${CGreen}\r[Email notification was sent successfully ($2)]${CClear}"
      echo -e "$(date +'%b %d %Y %X') $(nvram get lan_hostname) TAILMON[$$] - INFO: Email notification was sent successfully [$2]" >> $logfile
      sleep 5
    else
@@ -1452,7 +1465,7 @@ fi
       printf "that the Tailscale service settings are not in sync with the TAILMON config. This could be due to a\n"
       printf "Tailscale update. TAILMON has fixed the settings and restarted the Tailscale service/connection.\n"
       printf "\n"
-      } > "$tmpEMailBodyFile"    
+      } > "$tmpEMailBodyFile"
     elif [ "$2" == "Tailscale Service Restarted" ]; then
       emailSubject="FAILURE: Tailscale Service Restarted"
       emailBodyTitle="FAILURE: Tailscale Service Restarted"
@@ -1466,8 +1479,8 @@ fi
       } > "$tmpEMailBodyFile"
     fi
     _SendEMailNotification_ "TAILMON v$version" "$emailSubject" "$tmpEMailBodyFile" "$emailBodyTitle"
-  fi  
-  
+  fi
+
   if [ "$1" == "0" ] && [ "$amtmemailsuccess" == "1" ]; then
     if [ "$2" == "Tailscale Operating Mode Userspace" ]; then
       emailSubject="SUCCESS: Tailscale Operating Mode changed to Userspace Mode"
@@ -1499,7 +1512,7 @@ fi
     fi
     _SendEMailNotification_ "TAILMON v$version" "$emailSubject" "$tmpEMailBodyFile" "$emailBodyTitle"
   fi
-  
+
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -1718,7 +1731,7 @@ while true; do
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo ""
   if [ "$tsinstalleddisp" == "Installed" ]; then
-  	if [ "$tsoperatingmode" == "Custom" ]; then
+    if [ "$tsoperatingmode" == "Custom" ]; then
       read -p "Please select? (1-9, S/T/U/D/P/O/L/M, e=Exit): " SelectSlot
     else
       read -p "Please select? (1-9, S/T/U/D/P/L/M, e=Exit): " SelectSlot
@@ -1741,9 +1754,9 @@ while true; do
       [Mm]) exec sh /jffs/scripts/tailmon.sh -screen -now;;
 
       [Oo]) if [ "$tsoperatingmode" == "Custom" ]; then
-      	      customconfig
-      	    fi ;;
-      	    
+              customconfig
+            fi ;;
+
       [Pp]) echo ""; tsupdate;;
 
       1) installts;;
@@ -1813,7 +1826,7 @@ while true; do
   else
     amtmemailsuccfaildisp="Disabled"
   fi
-  
+
   if [ $autostart -eq 0 ]; then
     autostartdisp="Disabled"
   elif [ $autostart -eq 1 ]; then
@@ -2077,6 +2090,8 @@ while true; do
               opkg remove tailscale
               rm -f /opt/var/tailscaled.state >/dev/null 2>&1
               rm -r /opt/var/lib/tailscale >/dev/null 2>&1
+              rm -r /var/run/tailscale >/dev/null 2>&1
+              rm -r /var/lib/tailscale >/dev/null 2>&1
               echo ""
               read -rsp $'Press any key to continue...\n' -n1 key
               echo ""
@@ -2382,7 +2397,7 @@ while true; do
     echo -e "                           ${CWhite}Operations Menu ${InvDkGray}            $tzspaces$(date) ${CClear}"
     echo -e "${InvGreen} ${CClear} ${CGreen}(S)${CClear}tart / S${CGreen}(T)${CClear}op Tailscale Service                   ${InvGreen} ${CClear} ${CGreen}(C)${CClear}onfiguration Menu / Main Setup Menu${CClear}"
     echo -e "${InvGreen} ${CClear} Tailscale Connection ${CGreen}(U)${CClear}p / ${CGreen}(D)${CClear}own                   ${InvGreen} ${CClear} ${CGreen}(L)${CClear}og Viewer / Trim Log Size (rows): ${CGreen}$logsize${CClear}"
-    
+
     if [ "$tsoperatingmode" == "Custom" ]; then
       echo -e "${InvGreen} ${CClear} Custom ${CGreen}(O)${CClear}peration Mode Settings                     ${InvGreen} ${CClear} ${CGreen}(K)${CClear}eep Tailscale Service Alive: ${CGreen}$keepalivedisp${CClear}"
     else
@@ -2488,7 +2503,6 @@ while true; do
       sleep 3
 
       startts
-
       tsup
 
       sleep 3
