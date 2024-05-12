@@ -12,7 +12,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.0.8"
+version="1.0.10"
 beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
@@ -64,6 +64,75 @@ InvCyan="\e[1;46m"
 CWhite="\e[1;37m"
 InvWhite="\e[1;107m"
 CClear="\e[0m"
+
+# -------------------------------------------------------------------------------------------------------------------------
+# FUNCTIONS BEGIN
+# -------------------------------------------------------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------------------------------------------------------
+# LogoNM is a function that displays the BACKUPMON script name in a cool ASCII font without menu options
+logoNM () {
+  clear
+  echo ""
+  echo ""
+  echo ""
+  echo -e "${CDkGray}                      _________    ______    __  _______  _   __"
+  echo -e "                     /_  __/   |  /  _/ /   /  |/  / __ \/ | / /"
+  echo -e "                      / / / /| |  / // /   / /|_/ / / / /  |/ /"
+  echo -e "                     / / / ___ |_/ // /___/ /  / / /_/ / /|  /"
+  echo -e "                    /_/ /_/  |_/___/_____/_/  /_/\____/_/ |_/ v$version"
+  echo ""
+  echo ""
+  printf "\r                            ${CGreen}    [ INITIALIZING ]     ${CClear}"
+  sleep 1
+  clear
+  echo ""
+  echo ""
+  echo ""
+  echo -e "${CYellow}                      _________    ______    __  _______  _   __"
+  echo -e "                     /_  __/   |  /  _/ /   /  |/  / __ \/ | / /"
+  echo -e "                      / / / /| |  / // /   / /|_/ / / / /  |/ /"
+  echo -e "                     / / / ___ |_/ // /___/ /  / / /_/ / /|  /"
+  echo -e "                    /_/ /_/  |_/___/_____/_/  /_/\____/_/ |_/ v$version"
+  echo ""
+  echo ""
+  printf "\r                            ${CGreen}[ INITIALIZING ... DONE ]${CClear}"
+  sleep 1
+  printf "\r                            ${CGreen}      [ LOADING... ]     ${CClear}"
+  sleep 1
+}
+
+logoNMexit () {
+  clear
+  echo ""
+  echo ""
+  echo ""
+  
+  echo -e "${CYellow}                      _________    ______    __  _______  _   __"
+  echo -e "                     /_  __/   |  /  _/ /   /  |/  / __ \/ | / /"
+  echo -e "                      / / / /| |  / // /   / /|_/ / / / /  |/ /"
+  echo -e "                     / / / ___ |_/ // /___/ /  / / /_/ / /|  /"
+  echo -e "                    /_/ /_/  |_/___/_____/_/  /_/\____/_/ |_/ v$version"
+  echo ""
+  echo ""
+  printf "\r                            ${CGreen}    [ SHUTTING DOWN ]     ${CClear}"
+  sleep 1
+  clear
+  echo ""
+  echo ""
+  echo ""
+  echo -e "${CDkGray}                      _________    ______    __  _______  _   __"
+  echo -e "                     /_  __/   |  /  _/ /   /  |/  / __ \/ | / /"
+  echo -e "                      / / / /| |  / // /   / /|_/ / / / /  |/ /"
+  echo -e "                     / / / ___ |_/ // /___/ /  / / /_/ / /|  /"
+  echo -e "                    /_/ /_/  |_/___/_____/_/  /_/\____/_/ |_/ v$version"
+  echo ""
+  echo ""
+  printf "\r                            ${CGreen}    [ SHUTTING DOWN ]     ${CClear}"
+  sleep 1
+  printf "\r                            ${CDkGray}      [ GOODBYE... ]     ${CClear}\n\n"
+  sleep 1
+}
 
 # -------------------------------------------------------------------------------------------------------------------------
 # Promptyn is a simple function that accepts y/n input
@@ -143,7 +212,7 @@ progressbaroverride()
           [Aa]) vconfig;;
           [Cc]) vsetup;;
           [Dd]) tsdown;;
-          [Ee]) echo -e "${CClear}\n"; exit 0;;
+          [Ee]) logoNMexit; echo -e "${CClear}\n"; exit 0;;
           [Kk]) vconfig;;
           [Ll]) vlogs;;
           [Mm]) timerloopconfig;;
@@ -286,7 +355,6 @@ expressinstall()
   echo -e "${CGreen}Please be prepared to copy and paste the link below into your browser, and connect this device"
   echo -e "to your tailnet (Tailscale Network)${CClear}"
   echo ""
-
   advroutescmd="--advertise-routes=$routes"
   echo -e "${CGreen}Executing: tailscale up $advroutescmd${CClear}"
   echo ""
@@ -376,8 +444,8 @@ uninstallts()
           echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service shut down." >> $logfile
           echo ""
           echo -e "\n${CGreen}Removing firewall-start entries...${CClear}"
-          #remove firewall-start entry if found
 
+          #remove firewall-start entry if found
           if [ -f /jffs/scripts/firewall-start ]; then
             if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
               sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
@@ -399,6 +467,7 @@ uninstallts()
 
           echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Entware package removed." >> $logfile
 
+          # Removed the various folders tailscale could hide
           rm -f /opt/var/tailscaled.state >/dev/null 2>&1
           rm -r /opt/var/lib/tailscale >/dev/null 2>&1
           rm -r /opt/var/run/tailscale >/dev/null 2>&1
@@ -435,14 +504,14 @@ startts()
 
       printf "\33[2K\r"
       printf "${CGreen}\r[Starting Tailscale Service]"
-      sleep 3
+      sleep 1
       printf "\33[2K\r"
       echo -e "${CGreen}Messages:"
       echo ""
       /opt/etc/init.d/S06tailscaled start
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service started." >> $logfile
       echo ""
-      sleep 5
+      #sleep 5
       resettimer=1
 }
 
@@ -454,14 +523,14 @@ stopts()
 
       printf "\33[2K\r"
       printf "${CGreen}\r[Stopping Tailscale Service]"
-      sleep 3
+      sleep 1
       printf "\33[2K\r"
       echo -e "${CGreen}Messages:"
       echo ""
       /opt/etc/init.d/S06tailscaled stop
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service stopped." >> $logfile
       echo ""
-      sleep 3
+      #sleep 3
       resettimer=1
 }
 
@@ -473,7 +542,7 @@ tsup()
 
       printf "\33[2K\r"
       printf "${CGreen}\r[Activating Tailscale Connection]"
-      sleep 3
+      sleep 1
       printf "\33[2K\r"
 
       if [ $exitnode -eq 1 ]; then exitnodecmd="--advertise-exit-node "; else exitnodecmd=""; fi
@@ -493,7 +562,7 @@ tsup()
       fi
 
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection started." >> $logfile
-      sleep 3
+      #sleep 3
       resettimer=1
 }
 
@@ -505,7 +574,7 @@ tsdown()
 
       printf "\33[2K\r"
       printf "${CGreen}\r[Bringing Tailscale Connection Down]"
-      sleep 3
+      sleep 1
       printf "\33[2K\r"
       echo -e "${CGreen}Messages:${CClear}"
       echo ""
@@ -513,7 +582,7 @@ tsdown()
       echo ""
       tailscale down
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection stopped." >> $logfile
-      sleep 3
+      #sleep 3
       resettimer=1
 }
 
@@ -525,7 +594,7 @@ tsupdate()
 
       printf "\33[2K\r"
       printf "${CGreen}\r[Updating Tailscale Binary]"
-      sleep 3
+      sleep 1
       printf "\33[2K\r"
 
       echo -e "${CGreen}Messages:${CClear}"
@@ -542,7 +611,7 @@ tsupdate()
         echo -e "\n"
         printf "\33[2K\r"
         printf "${CGreen}\r[Restarting Tailscale Service/Connection]${CClear}"
-        sleep 3
+        sleep 1
 
         tsdown
         stopts
@@ -607,7 +676,7 @@ while true; do
       echo -e "${CGreen}[Modifying POST-MOUNT file]..."
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Reboot Protection Disabled" >> $logfile
       saveconfig
-      sleep 2
+      sleep 1
       timer=$timerloop
       break
     fi
@@ -623,7 +692,7 @@ while true; do
         echo -e "${CGreen}[Modifying POST-MOUNT file]..."
         echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Reboot Protection Enabled" >> $logfile
         saveconfig
-        sleep 2
+        sleep 1
         timer=$timerloop
         break
       else
@@ -642,7 +711,7 @@ while true; do
       echo -e "${CGreen}[Modifying POST-MOUNT file]..."
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Reboot Protection Enabled" >> $logfile
       saveconfig
-      sleep 2
+      sleep 1
       timer=$timerloop
       break
     fi
@@ -875,10 +944,10 @@ while true; do
   clear
   echo -e "${InvGreen} ${InvDkGray}${CWhite} Operating Mode Configuration                                                          ${CClear}"
   echo -e "${InvGreen} ${CClear}"
-  echo -e "${InvGreen} ${CClear} Tailscale has 2 modes of operation: 'Userspace' and 'Kernel' mode. By default, the${CClear}"
-  echo -e "${InvGreen} ${CClear} installer will configure Tailscale to operate in 'Userspace' mode, but in the end,${CClear}"
-  echo -e "${InvGreen} ${CClear} should not make much difference performance-wise based on the hardware available in${CClear}"
-  echo -e "${InvGreen} ${CClear} our routers. More info below:${CClear}"
+  echo -e "${InvGreen} ${CClear} Tailscale has 2 main modes of operation: 'Userspace' and 'Kernel' mode. By default,${CClear}"
+  echo -e "${InvGreen} ${CClear} the installer will configure Tailscale to operate in 'Userspace' mode, but in the${CClear}"
+  echo -e "${InvGreen} ${CClear} end, should not make much difference performance-wise based on the hardware available${CClear}"
+  echo -e "${InvGreen} ${CClear} in our routers. More info below:${CClear}"
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} In general, kernel mode (and thus only Linux, for now) should be used for heavily${CClear}"
   echo -e "${InvGreen} ${CClear} used subnet routers, where 'heavy' is some combination of number of users, number${CClear}"
@@ -889,17 +958,22 @@ while true; do
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} A 3rd option (Custom) is also available, that allows you to enter your own custom${CClear}"
   echo -e "${InvGreen} ${CClear} settings for the ARGS, PREARGS, PRECMD and Tailscale Commandline. ${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear}${CYellow} NOTE: TAILMON will apply changes to modes after hitting the (e)xit key. If 'Custom'${CClear}"
+  echo -e "${InvGreen} ${CClear}${CYellow} operating mode is chosen, you will be presented with the option to edit custom${CClear}"
+  echo -e "${InvGreen} ${CClear}${CYellow} Tailscale settings after changes have been applied.${CClear}"
+  echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} (Default = Userspace Mode)${CClear}"
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} Current: ${CGreen}$tsoperatingmode${CClear}"
   echo ""
-  read -p "Please enter value (1=Userspace, 2=Kernel, 3=Custom)? (e=Exit): " EnterOperatingMode
+  read -p "Please enter value (1=Userspace, 2=Kernel, 3=Custom)? (e=Exit/Apply Changes): " EnterOperatingMode
   case $EnterOperatingMode in
     1)
       if [ "$tsoperatingmode" != "Userspace" ]; then restartts=1; fi
       echo -e "\n${CGreen}[Userspace Operating Mode Selected]"
-      sleep 3
+      sleep 1
       tsoperatingmode="Userspace"
       precmd=""
       args="--tun=userspace-networking --state=/opt/var/tailscaled.state --statedir=/opt/var/lib/tailscale"
@@ -912,7 +986,7 @@ while true; do
     2)
       if [ "$tsoperatingmode" != "Kernel" ]; then restartts=1; fi
       echo -e "\n${CGreen}[Kernel Operating Mode Selected]"
-      sleep 3
+      sleep 1
       tsoperatingmode="Kernel"
       precmd="modprobe tun"
       args="--state=/opt/var/tailscaled.state --statedir=/opt/var/lib/tailscale"
@@ -925,7 +999,7 @@ while true; do
     3)
       if [ "$tsoperatingmode" != "Custom" ]; then restartts=1; fi
       echo -e "\n${CGreen}[Custom Operating Mode Selected]"
-      sleep 3
+      sleep 1
       tsoperatingmode="Custom"
       precmd="modprobe tun"
       args="--state=/opt/var/tailscaled.state --statedir=/opt/var/lib/tailscale"
@@ -1207,7 +1281,7 @@ advroutests()
       echo  ""
       read -p "Please enter valid IP4 subnet range? (e=Exit): " routeinput
       if [ "$routeinput" == "e" ]; then
-        echo -e "\n[Exiting]"; sleep 2
+        echo -e "\n[Exiting]"; sleep 1
       else
         advroutes=1
         routes=$routeinput
@@ -1571,7 +1645,7 @@ installdependencies()
           read -rsp $'Press any key to continue...\n' -n1 key
           echo ""
           echo -e "Executing Configuration Utility..."
-          sleep 2
+          sleep 1
           vconfig
         else
           clear
@@ -1586,7 +1660,7 @@ installdependencies()
       echo ""
       echo -e "\n${CClear}[Exiting]"
       echo ""
-      sleep 2
+      sleep 1
       exit 0
     fi
   fi
@@ -1898,7 +1972,7 @@ while true; do
         read -p "Please enter Log Size (in rows)? (0-9999, e=Exit): " NEWLOGSIZE
 
           if [ "$NEWLOGSIZE" == "e" ]; then
-            echo -e "\n[Exiting]"; sleep 2
+            echo -e "\n[Exiting]"; sleep 1
           elif [ $NEWLOGSIZE -ge 0 ] && [ $NEWLOGSIZE -le 9999 ]; then
             logsize=$NEWLOGSIZE
             saveconfig
@@ -1943,7 +2017,7 @@ while true; do
 
       6) autostart;;
 
-      [Ee]) echo -e "${CClear}\n[Exiting]"; sleep 2; resettimer=1; break ;;
+      [Ee]) echo -e "${CClear}\n[Exiting]"; sleep 1; resettimer=1; break ;;
 
     esac
 done
@@ -2257,6 +2331,7 @@ if [ "$1" == "-setup" ]
     if [ ! -d "/jffs/addons/tailmon.d" ]; then
       mkdir -p "/jffs/addons/tailmon.d"
     fi
+    logoNM
     vsetup
     exit 0
 fi
@@ -2464,7 +2539,7 @@ while true; do
       printf "\33[2K\r"
       printf "${CGreen}\r[Tailscale Service settings out-of-sync]"
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale Service settings are out-of-sync." >> $logfile
-      sleep 3
+      sleep 1
 
       tsdown
       stopts
@@ -2483,12 +2558,12 @@ while true; do
       printf "\33[2K\r"
       printf "${CGreen}\r[Tailscale Service settings synced]"
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale Service settings synced." >> $logfile
-      sleep 3
+      sleep 1
 
       startts
       tsup
 
-      sleep 3
+      #sleep 3
       echo ""
       sendmessage 1 "Tailscale Service settings out-of-sync"
       resettimer=1
@@ -2502,12 +2577,12 @@ while true; do
       printf "\33[2K\r"
       printf "${CGreen}\r[Tailscale Service appears dead]"
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale Service appears dead." >> $logfile
-      sleep 3
+      sleep 1
 
       startts
       tsup
 
-      sleep 3
+      #sleep 3
       resettimer=1
       echo ""
       sendmessage 1 "Tailscale Service Restarted"
