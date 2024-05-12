@@ -1,3 +1,13 @@
+v1.0.10  - (May 12, 2024)
+         - PATCH: Made some wording changes based on feedback from @jksmurf in the Operation Mode screen,
+           which now explicitly states that changes are made upon exit, and that if the 'Custom' mode is
+           selected, that you will be able to make changes to custom settings after TAILMON completes
+           making changes.
+         - PATCH: Reduced the number of sleep timeouts based on feedback from @snz. This will reduce the
+           amount of time you have to receive feedback on what the application is currently doing, but will
+           give you the perception that its running faster now. Certain things I do not have control over:
+           ie. the time it takes for Tailscale services/connection to stop and start.
+
 v1.0.8   - (May 3, 2024)
          - PATCH: Increased the timer by a few seconds after the Tailscale service is started to hopefully
            reduce any possible error messages you would see when issuing a "tailscale up" command. It's a
