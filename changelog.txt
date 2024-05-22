@@ -1,3 +1,10 @@
+v1.0.x   - (TBA)
+         - PATCH: Added the ability to additionally (R)estart the service/connection under the Operations
+           Menu as well as the setup/configuration menu. Instead of having to s(T)op and then (S)tart the
+           service, and separately the connection, this will do it all in one swoop.
+         - PATCH TBD: Looking at possibly adding the switch "--stateful-filtering" to the "tailscale up"
+           command, as per mandatory changes in the Tailscale client v1.66.4.
+
 v1.0.10  - (May 12, 2024)
          - PATCH: Made some wording changes based on feedback from @jksmurf in the Operation Mode screen,
            which now explicitly states that changes are made upon exit, and that if the 'Custom' mode is
