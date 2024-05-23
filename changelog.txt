@@ -1,7 +1,7 @@
 v1.0.12   - (TBA)
          - PATCH: Added the ability to additionally (R)estart the service/connection under the Operations
            Menu as well as the setup/configuration menu. Instead of having to s(T)op and then (S)tart the
-           service, and separately the connection, this will do it all in one swoop.
+           service, and separately stopping/starting the connection, this will do it all in one swoop.
          - PATCH: Added another menu item under the Setup/Configuration that will allow you to initiate a
            "tailscale up --reset" command. As of recent, with the latest changes being made to the way the
            client functions, it was necessary to issue this command in order for the connection to continue
