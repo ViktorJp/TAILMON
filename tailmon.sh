@@ -578,19 +578,23 @@ tsreset()
       printf "${CGreen}\r[Initiating Forced Tailscale Connection Reset]"
       sleep 1
       echo -e "\n"
-      echo -e "${CRed}WARNING:${CClear} Executing this function will send a 'tailscale up --reset' command"
-      echo -e "which will clear any switches you have configured on your Tailscale connection."
-      echo -e "This action may be necessary at times when switches are inadvertently set and"
-      echo -e "registered with Tailscale, or due to switch functionality being altered or"
-      echo -e "changed by the Tailscale developers themselves. Once the '--reset' switch"
-      echo -e "has been sent, TAILMON will reinitialize the connection with your original"
-      echo -e "switches that you have configured for your current operating mode."
+      echo -e "${CRed}WARNING:${CClear} Executing this function will send a 'tailscale up --reset' command which"
+      echo -e "will clear any unspecified switches that are configured on your Tailscale connection."
+      echo -e "This action may be necessary at times when switches are inadvertently set and "
+      echo -e "registered with Tailscale, or due to switch functionality being altered or changed"
+      echo -e "by the Tailscale developers themselves. Once the '--reset' switch has been sent,"
+      echo -e "TAILMON will reinitialize the connection back to its regular defaults."
+      echo ""
+      echo -e "${CRed}PLEASE NOTE:${CClear} If you have configured any custom commandline switches that you want"
+      echo -e "to reset, you would need to run your own custom Tailscale command in a separate"
+      echo -e "prompt to disable the switch that is currently enabled. I would recommend looking"
+      echo -e "at the https://tailscale.com/kb site for further reference. Example:"
+      echo -e "${CGreen}tailscale up --accept-routes=false${CClear}"
       echo ""
       echo -e "Reset Tailscale Connection?"
       if promptyn "[y/n]: "
         then
-          echo -e "${CGreen}Messages:${CClear}"
-          echo ""
+          echo -e "\n"
           
           tsdown
           
@@ -1334,6 +1338,11 @@ advroutests()
       read -p "Please enter valid IP4 subnet range? (e=Exit): " routeinput
       if [ "$routeinput" == "e" ]; then
         echo -e "\n[Exiting]"; sleep 1
+      elif [ -z "$routeinput" ]; then
+        advroutes=1
+        routes=$(nvram get lan_ipaddr | cut -d"." -f1-3).0/24
+        saveconfig
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Advertised routes enabled." >> $logfile
       else
         advroutes=1
         routes=$routeinput
