@@ -1,4 +1,4 @@
-v1.0.x   - (TBA)
+v1.0.12   - (TBA)
          - PATCH: Added the ability to additionally (R)estart the service/connection under the Operations
            Menu as well as the setup/configuration menu. Instead of having to s(T)op and then (S)tart the
            service, and separately the connection, this will do it all in one swoop.
