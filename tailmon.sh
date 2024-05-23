@@ -562,6 +562,7 @@ restartts()
       startts
       tsup
 
+      echo ""
       printf "\33[2K\r"
       printf "${CGreen}\r[Tailscale Service/Connection Successfully Restarted]${CClear}"
       echo -e "\n"
@@ -598,9 +599,11 @@ tsreset()
           tailscale up --reset
           echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection Reset using --reset switch." >> $logfile
 
+          echo ""
           tsdown
           tsup
           
+          echo ""
           printf "\33[2K\r"
           printf "${CGreen}\r[Tailscale Connection Successfully Reset]${CClear}"
           echo -e "\n"
