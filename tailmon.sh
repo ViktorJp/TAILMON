@@ -12,7 +12,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.0.10"
+version="1.0.12"
 beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
@@ -217,6 +217,7 @@ progressbaroverride()
           [Ll]) vlogs;;
           [Mm]) timerloopconfig;;
           [Oo]) if [ "$tsoperatingmode" == "Custom" ]; then customconfig; fi;;
+          [Rr]) restartts;;
           [Ss]) startts;;
           [Tt]) stopts;;
           [Uu]) tsup;;
@@ -535,6 +536,88 @@ stopts()
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
+# restart service and connection
+
+restartts()
+{
+
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Restarting Tailscale Service/Connection]${CClear}"
+      sleep 1
+
+      tsdown
+      stopts
+
+      #make mods to the S06tailscaled service for Userspace mode
+      if [ "$tsoperatingmode" == "Userspace" ]; then
+        applyuserspacemode
+      #make mods to the S06tailscaled service for Kernel mode
+      elif [ "$tsoperatingmode" == "Kernel" ]; then
+        applykernelmode
+      #make mods to the S06tailscaled service for Custom mode
+      elif [ "$tsoperatingmode" == "Custom" ]; then
+        applycustommode
+      fi
+
+      startts
+      tsup
+
+      echo ""
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Tailscale Service/Connection Successfully Restarted]${CClear}"
+      echo -e "\n"
+      read -rsp $'Press any key to continue...\n' -n1 key
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# Tailscale reset connection routine
+
+tsreset()
+{
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Initiating Forced Tailscale Connection Reset]"
+      sleep 1
+      echo -e "\n"
+      echo -e "${CRed}WARNING:${CClear} Executing this function will send a 'tailscale up --reset' command which "
+      echo -e "will reset any default switches that are configured on your Tailscale connection. "
+      echo -e "This action may be necessary at times when these switches are inadvertently set and "
+      echo -e "registered with Tailscale, or due to switch functionality being altered or changed "
+      echo -e "by the Tailscale developers themselves. Once the '--reset' switch has been sent, "
+      echo -e "TAILMON will reinitialize the connection back to its regular defaults."
+      echo ""
+      echo -e "${CRed}PLEASE NOTE:${CClear} If you have configured any custom commandline switches that you want "
+      echo -e "to reset, you would need to run your own custom Tailscale command in a separate "
+      echo -e "prompt to disable the switch that is currently enabled. Please know that the switch "
+      echo -e "itself is not removed, but basically disabled. Please consider finding more info at "
+      echo -e "the https://tailscale.com/kb site for other references. Examples: "
+      echo -e "${CGreen}tailscale up --accept-routes=false${CClear} -or-"
+      echo -e "${CGreen}tailscale up --advertise-routes=${CClear}"
+      echo ""
+      echo -e "Reset Tailscale Connection?"
+      if promptyn "[y/n]: "
+        then
+          echo -e "\n"
+          
+          tsdown
+          
+          echo "Executing: tailscale up --reset"
+          echo ""
+          tailscale up --reset
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection Reset using --reset switch." >> $logfile
+
+          echo ""
+          tsdown
+          tsup
+          
+          echo ""
+          printf "\33[2K\r"
+          printf "${CGreen}\r[Tailscale Connection Successfully Reset]${CClear}"
+          echo -e "\n"
+          read -rsp $'Press any key to continue...\n' -n1 key
+      fi
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
 # Tailscale connection up
 
 tsup()
@@ -608,32 +691,7 @@ tsupdate()
       echo -e "Restart Tailscale?"
       if promptyn "[y/n]: "
         then
-        echo -e "\n"
-        printf "\33[2K\r"
-        printf "${CGreen}\r[Restarting Tailscale Service/Connection]${CClear}"
-        sleep 1
-
-        tsdown
-        stopts
-
-        #make mods to the S06tailscaled service for Userspace mode
-        if [ "$tsoperatingmode" == "Userspace" ]; then
-          applyuserspacemode
-        #make mods to the S06tailscaled service for Kernel mode
-        elif [ "$tsoperatingmode" == "Kernel" ]; then
-          applykernelmode
-        #make mods to the S06tailscaled service for Custom mode
-        elif [ "$tsoperatingmode" == "Custom" ]; then
-          applycustommode
-        fi
-
-        startts
-        tsup
-
-        printf "\33[2K\r"
-        printf "${CGreen}\r[Tailscale Service/Connection Successfully Restarted]${CClear}"
-        echo -e "\n"
-        read -rsp $'Press any key to continue...\n' -n1 key
+        restartts
       fi
 
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale binary updated to latest available version." >> $logfile
@@ -1282,6 +1340,11 @@ advroutests()
       read -p "Please enter valid IP4 subnet range? (e=Exit): " routeinput
       if [ "$routeinput" == "e" ]; then
         echo -e "\n[Exiting]"; sleep 1
+      elif [ -z "$routeinput" ]; then
+        advroutes=1
+        routes=$(nvram get lan_ipaddr | cut -d"." -f1-3).0/24
+        saveconfig
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Advertised routes enabled." >> $logfile
       else
         advroutes=1
         routes=$routeinput
@@ -1775,9 +1838,10 @@ while true; do
   printf "\33[2K\r"
 
   if [ "$tsinstalleddisp" == "Installed" ]; then
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} |-${CClear}-- ${InvGreen}${CWhite}(S)${CClear}tart / S${InvGreen}${CWhite}(T)${CClear}op Tailscale Service${CClear}           |--- ${CGreen}$tsservicedisp${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} |-${CClear}-- ${InvGreen}${CWhite}(R)${CClear}e-${InvGreen}${CWhite}(S)${CClear}tart / S${InvGreen}${CWhite}(T)${CClear}op Tailscale Service${CClear}      |--- ${CGreen}$tsservicedisp${CClear}"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} |-${CClear}-- ${InvGreen}${CWhite}(U)${CClear}p / ${InvGreen}${CWhite}(D)${CClear}own Tailscale Connection${CClear}           |--- ${CGreen}$tsconndisp${CClear}"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} |-${CClear}-- U${InvGreen}${CWhite}(P)${CClear}date Tailscale Binary to latest version  |--- ${CGreen}v$tsver${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} |-${CClear}-- ${InvGreen}${CWhite}(I)${CClear}ssue Connection '--reset' Command${CClear}"
   fi
 
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(2)${CClear} : Uninstall Tailscale Entware Package(s)${CClear}"
@@ -1807,14 +1871,16 @@ while true; do
   echo ""
   if [ "$tsinstalleddisp" == "Installed" ]; then
     if [ "$tsoperatingmode" == "Custom" ]; then
-      read -p "Please select? (1-9, S/T/U/D/P/O/L/M, e=Exit): " SelectSlot
+      read -p "Please select? (1-9, R/S/T/U/D/P/I/O/L/M, e=Exit): " SelectSlot
     else
-      read -p "Please select? (1-9, S/T/U/D/P/L/M, e=Exit): " SelectSlot
+      read -p "Please select? (1-9, R/S/T/U/D/P/I/L/M, e=Exit): " SelectSlot
     fi
   else
     read -p "Please select? (1-9, L/M, e=Exit): " SelectSlot
   fi
     case $SelectSlot in
+
+      [Rr]) echo ""; restartts;;
 
       [Ss]) echo ""; startts;;
 
@@ -1833,6 +1899,8 @@ while true; do
             fi ;;
 
       [Pp]) echo ""; tsupdate;;
+      
+      [Ii]) echo ""; tsreset;;
 
       1) installts;;
 
@@ -2472,7 +2540,7 @@ while true; do
     echo -en "${InvGreen} ${InvDkGray} TAILMON - v"
     printf "%-8s" $version
     echo -e "                           ${CWhite}Operations Menu ${InvDkGray}            $tzspaces$(date) ${CClear}"
-    echo -e "${InvGreen} ${CClear} ${CGreen}(S)${CClear}tart / S${CGreen}(T)${CClear}op Tailscale Service                   ${InvGreen} ${CClear} ${CGreen}(C)${CClear}onfiguration Menu / Main Setup Menu${CClear}"
+    echo -e "${InvGreen} ${CClear} ${CGreen}(R)${CClear}e-${CGreen}(S)${CClear}tart / S${CGreen}(T)${CClear}op Tailscale Service              ${InvGreen} ${CClear} ${CGreen}(C)${CClear}onfiguration Menu / Main Setup Menu${CClear}"
     echo -e "${InvGreen} ${CClear} Tailscale Connection ${CGreen}(U)${CClear}p / ${CGreen}(D)${CClear}own                   ${InvGreen} ${CClear} ${CGreen}(L)${CClear}og Viewer / Trim Log Size (rows): ${CGreen}$logsize${CClear}"
 
     if [ "$tsoperatingmode" == "Custom" ]; then

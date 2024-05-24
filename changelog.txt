@@ -1,3 +1,16 @@
+v1.0.12  - (May 23, 2024)
+         - PATCH: Added the ability to additionally (R)estart the service/connection under the Operations
+           Menu as well as the setup/configuration menu. Instead of having to s(T)op and then (S)tart the
+           service, and separately stopping/starting the connection, this will do it all in one swoop. It
+           may also help prevent a loss of connection while remote, as stopping anything Tailscale-related
+           it typically pretty dangerous, unless you have another way back in.
+         - PATCH: Added another menu item under the Setup/Configuration that will allow you to initiate a
+           "tailscale up --reset" command. As of recent, with the latest changes being made to the way the
+           client functions, it was necessary to issue this command in order for the connection to continue
+           operating. While this command can be run manually, it was decided to incorporate this option in
+           the TAILMON UI for ease-of-use. Appropriate warning language and further information has been
+           added to this item (I) in the Setup/Config menu after running it.
+
 v1.0.10  - (May 12, 2024)
          - PATCH: Made some wording changes based on feedback from @jksmurf in the Operation Mode screen,
            which now explicitly states that changes are made upon exit, and that if the 'Custom' mode is
