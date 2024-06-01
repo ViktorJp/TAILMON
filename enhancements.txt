@@ -1,5 +1,7 @@
 TO-DO
 -----
+* Determine if I can figure out what entware version is installed, and if it's below a certain threshold, put a stop to running the script until that version has been updated. Using opkg print-architecture command, check to see if it contains armv7-2.6. If it does then install the tailscale_nohf package, else just the normal tailscale package.
+* Do more error/status checking on the install of tailscale entware packages, and during the startup of the service/connection... and if it errors out, present better messaging around that, and potentially stopping the script in order to do more troubleshooting.
 
 DONE
 ----
