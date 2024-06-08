@@ -1,9 +1,11 @@
-v1.0.13  - (TBA)
+v1.0.14  - (June 8, 2024)
          - PATCH: As noted by a few running older hardware and earller versions of the kernel, they were
            having trouble getting Tailscale to install correctly. This is apparently due to the fact that
            these older devices needed a different installer package. TAILMON now checks for the kernel and
            architecture, and if it matches arm7 with kernel 2.6, then it will install the tailscale_nohf
-           package. Uninstall also ensures it will be removing the correctly named package.
+           package. Uninstall also ensures it will be removing the correctly named package. Huge thanks
+           to @ColinTaylor and @jksmurf for helping distill this into a working fix within TAILMON. ;)
+         - PATCH: General cleanup and organization throughout the script.
 
 v1.0.12  - (May 23, 2024)
          - PATCH: Added the ability to additionally (R)estart the service/connection under the Operations
