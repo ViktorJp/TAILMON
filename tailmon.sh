@@ -401,7 +401,7 @@ installts()
         echo -e "${CGreen}Installing Tailscale Package(s)...${CClear}"
         echo ""
         archker=$(opkg print-architecture | grep "armv7-2.6")
-        if [ -z "archker" ]; then
+        if [ -z "$archker" ]; then
           opkg install tailscale
         else
           opkg install tailscale_nohf #install special tailscale package for arm7 kernel 2.6
@@ -472,7 +472,7 @@ uninstallts()
           echo ""
 
           archker=$(opkg print-architecture | grep "armv7-2.6")
-          if [ -z "archker" ]; then
+          if [ -z "$archker" ]; then
             opkg remove tailscale
           else
             opkg remove tailscale_nohf #remove special tailscale package for arm7 kernel 2.6
@@ -2217,7 +2217,7 @@ vuninstall()
                 echo ""
 
                 archker=$(opkg print-architecture | grep "armv7-2.6")
-                if [ -z "archker" ]; then
+                if [ -z "$archker" ]; then
                   opkg remove tailscale
                 else
                   opkg remove tailscale_nohf #remove special tailscale package for arm7 kernel 2.6
