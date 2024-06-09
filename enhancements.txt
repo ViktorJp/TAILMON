@@ -1,6 +1,7 @@
 TO-DO
 -----
 * Do more error/status checking on the install of tailscale entware packages, and during the startup of the service/connection... and if it errors out, present better messaging around that, and potentially stopping the script in order to do more troubleshooting.
+* add a success event for when the script starts up, and perhaps check the amount of uptime of the router, and if it's less than 5 minutes, send a notification that the router just rebooted
 
 DONE
 ----
