@@ -1,3 +1,9 @@
+v1.0.1x  - (TBA)
+         - PATCH: Thanks to @Wheemer1, he noticed that when hitting (R)estart, that it would overwrite the
+           custom mode changes that were originally saved with the default custome mode settings. A new
+           function takes care of making sure restarts will now apply any custom mode changes when the
+           service/connection restarts.
+
 v1.0.14  - (June 8, 2024)
          - PATCH: As noted by a few running older hardware and earller versions of the kernel, they were
            having trouble getting Tailscale to install correctly. This is apparently due to the fact that
