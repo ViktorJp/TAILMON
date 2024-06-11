@@ -4,7 +4,7 @@ v1.0.17b1 - (TBA)
             function takes care of making sure (R)estarts will now apply any custom mode changes when the
             service/connection restarts.
           - PATCH: Also, thanks to @Wheemer1 for the suggestion to formally add the '--accept-routes'
-            commandline argument into TAILMON. A new menuitem (6) under then setup/configuration menu has
+            command line argument into TAILMON. A new menu item (6) under then setup/configuration menu has
             been added that asks whether or not you want to enable this option. Special care needed to be
             taken when this option gets disabled, as a 'tailscale up --reset' command needs to be issued
             before it can be completely disabled without having to endure tailscale warnings.
