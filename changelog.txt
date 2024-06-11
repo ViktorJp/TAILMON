@@ -1,6 +1,6 @@
 v1.0.17b1 - (TBA)
           - PATCH: Thanks to @Wheemer1, he noticed that when hitting (R)estart, that it would overwrite the
-            custom mode changes that were originally saved with the default custome mode settings. A new
+            custom mode changes that were originally saved with the default custom mode settings. A new
             function takes care of making sure restarts will now apply any custom mode changes when the
             service/connection restarts.
           - PATCH: Also, thanks to @Wheemer1 for the suggestion to formally add the '--accept-routes'
