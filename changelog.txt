@@ -12,6 +12,8 @@ v1.0.17b1 - (TBA)
             was rebooted or manually reset, to indicate that TAILMON has restarted after an unexpected
             router reboot. TAILMON looks at router uptime, and if it's set to automatically start within
             the first 10 minutes of the router coming back up, it will send you an email.
+          - PATCH: Updated some of the "site-to-site" wording changes on item #6 in the configuration/
+            setup menu, and associated menu item description per @jksmurf's suggestion. Thanks!
 
 v1.0.14   - (June 8, 2024)
           - PATCH: As noted by a few running older hardware and earller versions of the kernel, they were
