@@ -1448,12 +1448,14 @@ accroutests()
   clear
   if [ $accroutes -eq 0 ]; then accroutesdisp="No"; elif [ $accroutes -eq 1 ]; then accroutesdisp="Yes"; fi
 
-  echo -e "${InvGreen} ${InvDkGray}${CWhite} Accept Linux Routes on this Router                                                    ${CClear}"
+  echo -e "${InvGreen} ${InvDkGray}${CWhite} Accept Site-to-Site Functionality on this Router                                      ${CClear}"
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} Clients on Android, iOS, macOS, tvOS, and Windows automatically pick up your new"
   echo -e "${InvGreen} ${CClear} subnet routes. Only Linux clients using the --accept-routes flag discover the new"
   echo -e "${InvGreen} ${CClear} routes automatically because the default is to use only the Tailscale IP addresses."
-  echo -e "${InvGreen} ${CClear} Please indicate your choice below."
+  echo -e "${InvGreen} ${CClear} This option provides for the basic functionality to allow for site-to-site routing"
+  echo -e "${InvGreen} ${CClear} and communication between networks. Advanced troubleshooting skills may be required"
+  echo -e "${InvGreen} ${CClear} when enabling this option. Please indicate 'y' or 'n' below."
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} (Default = No)"
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
@@ -1974,11 +1976,11 @@ vsetup()
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  |-${CClear}-- Edit Custom ${InvGreen}${CWhite}(O)${CClear}peration Mode Settings${CClear}"
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 4)${CClear}${CDkGray} : Configure this Router as Exit Node           : $exitnodedisp${CClear}"
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 5)${CClear}${CDkGray} : Advertise Routes on this router              : $advroutesdisp${CClear}"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 6)${CClear}${CDkGray} : Accept Linux Routes on this router           : $accroutesdisp${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 6)${CClear}${CDkGray} : Accept Routes on this router                 : $accroutesdisp${CClear}"
     else
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 4)${CClear} : Configure this Router as Exit Node           : ${CGreen}$exitnodedisp${CClear}"
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 5)${CClear} : Advertise Routes on this router              : ${CGreen}$advroutesdisp${CClear}"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 6)${CClear} : Accept Linux Routes on this router           : ${CGreen}$accroutesdisp${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 6)${CClear} : Enable Site-to-Site functionality on router  : ${CGreen}$accroutesdisp${CClear}"
     fi
     echo -e "${InvGreen} ${CClear}"
     echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
