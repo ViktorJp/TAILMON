@@ -1,82 +1,99 @@
-v1.0.14  - (June 8, 2024)
-         - PATCH: As noted by a few running older hardware and earller versions of the kernel, they were
-           having trouble getting Tailscale to install correctly. This is apparently due to the fact that
-           these older devices needed a different installer package. TAILMON now checks for the kernel and
-           architecture, and if it matches arm7 with kernel 2.6, then it will install the tailscale_nohf
-           package. Uninstall also ensures it will be removing the correctly named package. Huge thanks
-           to @ColinTaylor and @jksmurf for helping distill this into a working fix within TAILMON. ;)
-         - PATCH: General cleanup and organization throughout the script.
+v1.0.18   - (June 15, 2024)
+          - PATCH: Thanks to @Wheemer1, he noticed that when hitting (R)estart, that it would overwrite the
+            custom mode changes that were originally saved with the default custom mode settings. A new
+            function takes care of making sure (R)estarts will now apply any custom mode changes when the
+            service/connection restarts.
+          - PATCH: Also, thanks to @Wheemer1 for the suggestion to formally add the '--accept-routes'
+            command line argument into TAILMON. A new menu item (6) under then setup/configuration menu has
+            been added that asks whether or not you want to enable this option. Special care needed to be
+            taken when this option gets disabled, as a 'tailscale up --reset' command needs to be issued
+            before it can be completely disabled without having to endure tailscale warnings.
+          - PATCH: Thanks to @rung, added another email notification coming from TAILMON when the router
+            was rebooted or manually reset, to indicate that TAILMON has restarted after an unexpected
+            router reboot. TAILMON looks at router uptime, and if it's set to automatically start within
+            the first 10 minutes of the router coming back up, it will send you an email.
+          - PATCH: Updated some of the "site-to-site" wording changes on item #6 in the configuration/
+            setup menu, and associated menu item description per @jksmurf's suggestion. Thanks!
 
-v1.0.12  - (May 23, 2024)
-         - PATCH: Added the ability to additionally (R)estart the service/connection under the Operations
-           Menu as well as the setup/configuration menu. Instead of having to s(T)op and then (S)tart the
-           service, and separately stopping/starting the connection, this will do it all in one swoop. It
-           may also help prevent a loss of connection while remote, as stopping anything Tailscale-related
-           it typically pretty dangerous, unless you have another way back in.
-         - PATCH: Added another menu item under the Setup/Configuration that will allow you to initiate a
-           "tailscale up --reset" command. As of recent, with the latest changes being made to the way the
-           client functions, it was necessary to issue this command in order for the connection to continue
-           operating. While this command can be run manually, it was decided to incorporate this option in
-           the TAILMON UI for ease-of-use. Appropriate warning language and further information has been
-           added to this item (I) in the Setup/Config menu after running it.
+v1.0.14   - (June 8, 2024)
+          - PATCH: As noted by a few running older hardware and earller versions of the kernel, they were
+            having trouble getting Tailscale to install correctly. This is apparently due to the fact that
+            these older devices needed a different installer package. TAILMON now checks for the kernel and
+            architecture, and if it matches arm7 with kernel 2.6, then it will install the tailscale_nohf
+            package. Uninstall also ensures it will be removing the correctly named package. Huge thanks
+            to @ColinTaylor and @jksmurf for helping distill this into a working fix within TAILMON. ;)
+          - PATCH: General cleanup and organization throughout the script.
 
-v1.0.10  - (May 12, 2024)
-         - PATCH: Made some wording changes based on feedback from @jksmurf in the Operation Mode screen,
-           which now explicitly states that changes are made upon exit, and that if the 'Custom' mode is
-           selected, that you will be able to make changes to custom settings after TAILMON completes
-           making changes.
-         - PATCH: Reduced the number of sleep timeouts based on feedback from @snz. This will reduce the
-           amount of time you have to receive feedback on what the application is currently doing, but will
-           give you the perception that its running faster now. Certain things I do not have control over:
-           ie. the time it takes for Tailscale services/connection to stop and start.
+v1.0.12   - (May 23, 2024)
+          - PATCH: Added the ability to additionally (R)estart the service/connection under the Operations
+            Menu as well as the setup/configuration menu. Instead of having to s(T)op and then (S)tart the
+            service, and separately stopping/starting the connection, this will do it all in one swoop. It
+            may also help prevent a loss of connection while remote, as stopping anything Tailscale-related
+            it typically pretty dangerous, unless you have another way back in.
+          - PATCH: Added another menu item under the Setup/Configuration that will allow you to initiate a
+            "tailscale up --reset" command. As of recent, with the latest changes being made to the way the
+            client functions, it was necessary to issue this command in order for the connection to continue
+            operating. While this command can be run manually, it was decided to incorporate this option in
+            the TAILMON UI for ease-of-use. Appropriate warning language and further information has been
+            added to this item (I) in the Setup/Config menu after running it.
 
-v1.0.8   - (May 3, 2024)
-         - PATCH: Increased the timer by a few seconds after the Tailscale service is started to hopefully
-           reduce any possible error messages you would see when issuing a "tailscale up" command. It's a
-           theory that when the service is started and not completely ready to go yet, that when the "up"
-           command is given, that this may cause an benign unresponsive tailscale error message, and would
-           require a successive "up" command to get it going.
-         - PATCH: Included a few more Tailscale folders in the uninstall routine, as the v1.64 version of
-           Tailscale adds a couple of different locations where files are being kept. These will all now be
-           cleaned up after any uninstall of the Tailscale package.
+v1.0.10   - (May 12, 2024)
+          - PATCH: Made some wording changes based on feedback from @jksmurf in the Operation Mode screen,
+            which now explicitly states that changes are made upon exit, and that if the 'Custom' mode is
+            selected, that you will be able to make changes to custom settings after TAILMON completes
+            making changes.
+          - PATCH: Reduced the number of sleep timeouts based on feedback from @snz. This will reduce the
+            amount of time you have to receive feedback on what the application is currently doing, but will
+            give you the perception that its running faster now. Certain things I do not have control over:
+            ie. the time it takes for Tailscale services/connection to stop and start.
 
-v1.0.6   - (May 1, 2024)
-         - PATCH: The Tailscale binary version is now shown in the UI on the Tailscale Service bar/header.
-         - PATCH: The "Custom (O)peration Mode Settings" item in the Operations Menu is now grayed out if the
-           "Custom" Operations Mode isn't selected. This item will be non-responsive unless "Custom" has been
-           enabled, which will then open the Custom Operation Mode menu, allowing for full control over the
-           Tailscale service switches and connection commandline switches.
-         - PATCH: A new menu item in the Setup/Configuration menu will now show up if Tailscale has been found
-           to be installed. The new option U(P)date will run the "tailscale update" command, and present the
-           user with the choice to update to the latest available stable Tailscale version. After the update
-           finishes, TAILMON will ask if you would like to reset the Tailscale service/connection (highly
-           recommended), as this action will also sync previous switch settings which are wiped out when an
-           update is installed.
-         - PATCH: Another new menu item under the Custom Configuration menu has been added to provide TAILMON
-           with a reboot protection option. Item #6 under this menu will add a command to your post-mount file
-           and will launch TAILMON into its own Screen session, providing continued monitoring even after a
-           router reboot occurs.
+v1.0.8    - (May 3, 2024)
+          - PATCH: Increased the timer by a few seconds after the Tailscale service is started to hopefully
+            reduce any possible error messages you would see when issuing a "tailscale up" command. It's a
+            theory that when the service is started and not completely ready to go yet, that when the "up"
+            command is given, that this may cause an benign unresponsive tailscale error message, and would
+            require a successive "up" command to get it going.
+          - PATCH: Included a few more Tailscale folders in the uninstall routine, as the v1.64 version of
+            Tailscale adds a couple of different locations where files are being kept. These will all now be
+            cleaned up after any uninstall of the Tailscale package.
 
-v1.0.2   - (April 30, 2024)
-         - PATCH: Thanks to @XIII, for finding an inconsistency that we hadn't stumbled across yet. After an
-           install, when running tailmon.sh -setup immediately after resulted in errors showing that it was not
-           able to write the .log and .cfg files into their /jffs/addons/tailmon.d folder, because that folder
-           gets created upon running tailmon.sh by itself. Emergency fix has been patched! Thanks!
+v1.0.6    - (May 1, 2024)
+          - PATCH: The Tailscale binary version is now shown in the UI on the Tailscale Service bar/header.
+          - PATCH: The "Custom (O)peration Mode Settings" item in the Operations Menu is now grayed out if the
+            "Custom" Operations Mode isn't selected. This item will be non-responsive unless "Custom" has been
+            enabled, which will then open the Custom Operation Mode menu, allowing for full control over the
+            Tailscale service switches and connection commandline switches.
+          - PATCH: A new menu item in the Setup/Configuration menu will now show up if Tailscale has been found
+            to be installed. The new option U(P)date will run the "tailscale update" command, and present the
+            user with the choice to update to the latest available stable Tailscale version. After the update
+            finishes, TAILMON will ask if you would like to reset the Tailscale service/connection (highly
+            recommended), as this action will also sync previous switch settings which are wiped out when an
+            update is installed.
+          - PATCH: Another new menu item under the Custom Configuration menu has been added to provide TAILMON
+            with a reboot protection option. Item #6 under this menu will add a command to your post-mount file
+            and will launch TAILMON into its own Screen session, providing continued monitoring even after a
+            router reboot occurs.
 
-v1.0.1   - (April 29, 2024)
-         - PATCH: Straight out of the gate, and @ColinTaylor makes a great observation that the uninstaller is
-           still referring to an older Tailscale directory structure that was recently changed. Thanks Colin! This
-           has been patched! :)
+v1.0.2    - (April 30, 2024)
+          - PATCH: Thanks to @XIII, for finding an inconsistency that we hadn't stumbled across yet. After an
+            install, when running tailmon.sh -setup immediately after resulted in errors showing that it was not
+            able to write the .log and .cfg files into their /jffs/addons/tailmon.d folder, because that folder
+            gets created upon running tailmon.sh by itself. Emergency fix has been patched! Thanks!
 
-v1.0.0   - (April 29, 2024)
-         - MAJOR: TAILMON is officially released today! Tailscale is a free and open source service, based on
-           WireGuard®, that helps users build no-hassle virtual private networks. Once you’ve created a Tailscale
-           network (tailnet), you can securely access services and devices on that tailnet from anywhere in the
-           world.  TAILMON is a posix shell script that assists with the install, configuration and monitoring of
-           Tailscale, running on your Asus-Merlin FW router. Wanted to give huge thanks to @jksmurf for lighting
-           this fire… He opened my eyes to Tailscale and its capabilities, and only became natural to want to
-           fullfill his wishes to create a formal installer/monitor for this valuable tool for others to enjoy.
-           He, along with @Aiadi, @kuki68ster and @ColinTaylor made a fantastic team that has been working
-           diligently in the background testing the capabilities, limits and stability of Tailscale on our routers.
-           Hats off to all these gentlemen for their help and insight that went into making this tool!
+v1.0.1    - (April 29, 2024)
+          - PATCH: Straight out of the gate, and @ColinTaylor makes a great observation that the uninstaller is
+            still referring to an older Tailscale directory structure that was recently changed. Thanks Colin! This
+            has been patched! :)
+
+v1.0.0    - (April 29, 2024)
+          - MAJOR: TAILMON is officially released today! Tailscale is a free and open source service, based on
+            WireGuard®, that helps users build no-hassle virtual private networks. Once you’ve created a Tailscale
+            network (tailnet), you can securely access services and devices on that tailnet from anywhere in the
+            world.  TAILMON is a posix shell script that assists with the install, configuration and monitoring of
+            Tailscale, running on your Asus-Merlin FW router. Wanted to give huge thanks to @jksmurf for lighting
+            this fire… He opened my eyes to Tailscale and its capabilities, and only became natural to want to
+            fullfill his wishes to create a formal installer/monitor for this valuable tool for others to enjoy.
+            He, along with @Aiadi, @kuki68ster and @ColinTaylor made a fantastic team that has been working
+            diligently in the background testing the capabilities, limits and stability of Tailscale on our routers.
+            Hats off to all these gentlemen for their help and insight that went into making this tool!
 

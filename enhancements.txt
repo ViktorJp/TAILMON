@@ -4,7 +4,9 @@ TO-DO
 
 DONE
 ----
-* Determine if I can figure out what entware version is installed, and if it's below a certain threshold, put a stop to running the script until that version has been updated. Using opkg print-architecture command, check to see if it contains armv7-2.6. If it does then install the tailscale_nohf package, else just the normal tailscale package.
+* BUG: issuing R for restart the custom setting get reset to original without -accept-routes (custom settings)
+* check uptime of the router, and if it's less than 5 minutes after script starts, send a notification that the router just rebooted
+* check entware version for armv7-2.6 cpu/arch, then install the tailscale_nohf package, else just the normal tailscale package.
 * Add an option for a "tailscale up --reset" for those needing a reset
 * Show tailscale binary version in UI
 * Gray out the (O) option on operations menu if Custom isn't enabled

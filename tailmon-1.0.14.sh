@@ -12,13 +12,12 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.0.18"
+version="1.0.14"
 beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
 dlverpath="/jffs/addons/tailmon.d/version.txt"                       # Static path to the version file
 logfile="/jffs/addons/tailmon.d/tailmon.log"                         # Static path to the log
-routerboot=0
 tsinstalled=0
 keepalive=0
 timerloop=60
@@ -28,7 +27,6 @@ amtmemailsuccess=0
 amtmemailfailure=0
 exitnode=0
 advroutes=1
-accroutes=0
 persistentsettings=0
 tsoperatingmode="Userspace"
 precmd=""
@@ -221,7 +219,7 @@ progressbaroverride()
           [Ll]) vlogs;;
           [Mm]) timerloopconfig;;
           [Oo]) if [ "$tsoperatingmode" == "Custom" ]; then customconfig; fi;;
-          [Rr]) restarttsc;;
+          [Rr]) restartts;;
           [Ss]) startts;;
           [Tt]) stopts;;
           [Uu]) tsup;;
@@ -550,7 +548,7 @@ stopts()
 # -------------------------------------------------------------------------------------------------------------------------
 # restart service and connection
 
-restarttsc()
+restartts()
 {
       printf "\33[2K\r"
       printf "${CGreen}\r[Restarting Tailscale Service/Connection]${CClear}"
@@ -567,7 +565,7 @@ restarttsc()
         applykernelmode
       #make mods to the S06tailscaled service for Custom mode
       elif [ "$tsoperatingmode" == "Custom" ]; then
-        applycustomchanges
+        applycustommode
       fi
 
       startts
@@ -629,26 +627,6 @@ tsreset()
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
-# Tailscale connection reset
-
-tsresetc()
-{
-      printf "\33[2K\r"
-      printf "${CGreen}\r[Resetting Tailscale Connection]"
-      sleep 1
-      printf "\33[2K\r"
-      echo -e "${CGreen}Messages:${CClear}"
-      echo ""
-      echo "Executing: tailscale up --reset"
-      echo ""
-      tailscale up --reset
-      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection Reset using --reset switch." >> $logfile
-      resettimer=1
-      echo -e "\n"
-      read -rsp $'Press any key to continue...\n' -n1 key
-}
-
-# -------------------------------------------------------------------------------------------------------------------------
 # Tailscale connection up
 
 tsup()
@@ -659,8 +637,7 @@ tsup()
       printf "\33[2K\r"
 
       if [ $exitnode -eq 1 ]; then exitnodecmd="--advertise-exit-node "; else exitnodecmd=""; fi
-      if [ $advroutes -eq 1 ]; then advroutescmd="--advertise-routes=$routes "; else advroutescmd=""; fi
-      if [ $accroutes -eq 1 ]; then accroutescmd="--accept-routes"; else accroutescmd=""; fi
+      if [ $advroutes -eq 1 ]; then advroutescmd="--advertise-routes=$routes"; else advroutescmd=""; fi
 
       echo -e "${CGreen}Messages:${CClear}"
       echo ""
@@ -670,12 +647,13 @@ tsup()
         echo ""
         tailscale up $customcmdline
       else
-        echo "Executing: tailscale up $exitnodecmd$advroutescmd$accroutescmd"
+        echo "Executing: tailscale up $exitnodecmd$advroutescmd"
         echo ""
-        tailscale up $exitnodecmd$advroutescmd$accroutescmd
+        tailscale up $exitnodecmd$advroutescmd
       fi
 
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection started." >> $logfile
+      #sleep 3
       resettimer=1
 }
 
@@ -694,6 +672,7 @@ tsdown()
       echo ""
       tailscale down
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection stopped." >> $logfile
+      #sleep 3
       resettimer=1
 }
 
@@ -718,7 +697,7 @@ tsupdate()
       echo -e "Restart Tailscale?"
       if promptyn "[y/n]: "
         then
-        restarttsc
+        restartts
       fi
 
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale binary updated to latest available version." >> $logfile
@@ -1249,35 +1228,6 @@ applycustommode()
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
-# applycustomchanges applies the custom settings for the Custom operating mode that may have been changed by the user
-
-applycustomchanges()
-{
-  precmd_regexp="$(printf '%s' "$precmd" | sed -e 's/[]\/$*.^|[]/\\&/g' | sed ':a;N;$!ba;s,\n,\\n,g')"
-  if ! grep -q -F "PRECMD=" /opt/etc/init.d/S06tailscaled; then
-    sed '5 i PRECMD=\"'"$precmd_regexp"'\"' /opt/etc/init.d/S06tailscaled > /opt/etc/init.d/S06tailscaled2
-    rm -f /opt/etc/init.d/S06tailscaled
-    mv /opt/etc/init.d/S06tailscaled2 /opt/etc/init.d/S06tailscaled
-    chmod 755 /opt/etc/init.d/S06tailscaled
-  else
-    sed -i "s/^PRECMD=.*/PRECMD=\"$precmd_regexp\"/" "/opt/etc/init.d/S06tailscaled"
-  fi
-
-  args_regexp="$(printf '%s' "$args" | sed -e 's/[]\/$*.^|[]/\\&/g' | sed ':a;N;$!ba;s,\n,\\n,g')"
-  sed -i "s/^ARGS=.*/ARGS=\"$args_regexp\"/" "/opt/etc/init.d/S06tailscaled"
-
-  preargs_regexp="$(printf '%s' "$preargs" | sed -e 's/[]\/$*.^|[]/\\&/g' | sed ':a;N;$!ba;s,\n,\\n,g')"
-  sed -i "s/^PREARGS=.*/PREARGS=\"$preargs_regexp\"/" "/opt/etc/init.d/S06tailscaled"
-  
-  saveconfig
-  timer=$timerloop
-  restartts=1
-
-  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Custom Mode changes have been applied." >> $logfile
-  sendmessage 0 "Tailscale Operating Mode Custom"
-}
-
-# -------------------------------------------------------------------------------------------------------------------------
 # exitnodets provide a menu interface to allow for selection of router becoming an exitnode
 
 exitnodets()
@@ -1435,79 +1385,6 @@ advroutests()
       stopts
       startts
       tsup
-
-    fi
-  fi
-}
-
-# -------------------------------------------------------------------------------------------------------------------------
-# accroutests provide a menu interface to allow for entry to accept linux routes
-
-accroutests()
-{
-  clear
-  if [ $accroutes -eq 0 ]; then accroutesdisp="No"; elif [ $accroutes -eq 1 ]; then accroutesdisp="Yes"; fi
-
-  echo -e "${InvGreen} ${InvDkGray}${CWhite} Accept Site-to-Site Functionality on this Router                                      ${CClear}"
-  echo -e "${InvGreen} ${CClear}"
-  echo -e "${InvGreen} ${CClear} Clients on Android, iOS, macOS, tvOS, and Windows automatically pick up your new"
-  echo -e "${InvGreen} ${CClear} subnet routes. Only Linux clients using the --accept-routes flag discover the new"
-  echo -e "${InvGreen} ${CClear} routes automatically because the default is to use only the Tailscale IP addresses."
-  echo -e "${InvGreen} ${CClear} This option provides for the basic functionality to allow for site-to-site routing"
-  echo -e "${InvGreen} ${CClear} and communication between networks. Advanced troubleshooting skills may be required"
-  echo -e "${InvGreen} ${CClear} when enabling this option. Please indicate 'y' or 'n' below."
-  echo -e "${InvGreen} ${CClear}"
-  echo -e "${InvGreen} ${CClear} (Default = No)"
-  echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
-  echo -e "${InvGreen} ${CClear}"
-  echo -e "${InvGreen} ${CClear} Current: ${CGreen}$accroutesdisp${CClear}"
-  echo ""
-  echo -e "Accept Routes?"
-  if promptyn "[y/n]: "
-    then
-      accroutes=1
-      saveconfig
-      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Accepted Linux routes enabled." >> $logfile
-    else
-      accroutes=0
-      saveconfig
-      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Accepted Linux routes disabled." >> $logfile
-  fi
-  timer=$timerloop
-
-  if [ "$accroutesdisp" == "No" ] && [ $accroutes -eq 1 ]; then
-    echo ""
-    echo -e "\nChanging routing configuration options will require a restart of Tailscale. Restart now?"
-    if promptyn "[y/n]: "
-      then
-      echo ""
-      echo -e "\n${CGreen}Restarting Tailscale Service and Connection...${CClear}"
-      echo ""
-
-      tsdown
-      stopts
-      startts
-      tsup
-      sleep 3
-      
-    fi
-  fi
-
-  if [ "$accroutesdisp" == "Yes" ] && [ $accroutes -eq 0 ]; then
-    echo ""
-    echo -e "\nChanging routing configuration options will require a restart of Tailscale. Restart now?"
-    if promptyn "[y/n]: "
-      then
-      echo ""
-      echo -e "\n${CGreen}Restarting Tailscale Service and Connection...${CClear}"
-      echo ""
-
-      tsdown
-      stopts
-      startts
-      tsresetc
-      tsup
-      sleep 3
 
     fi
   fi
@@ -1733,17 +1610,6 @@ fi
       printf "behavior continues to persist.\n"
       printf "\n"
       } > "$tmpEMailBodyFile"
-    elif [ "$2" == "Router has been restarted" ]; then
-      emailSubject="WARNING: Router Has Unexpectedly Restarted"
-      emailBodyTitle="WARNING: Router Has Unexpectedly Restarted"
-      {
-      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
-      printf "\n"
-      printf "<b>WARNING: TAILMON</b> has detected that the router may have rebooted or was restarted. TAILMON.\n"
-      printf "has reset the service, and reestablished a connection to your Tailnet. Please investigate if this\n"
-      printf "behavior continues to persist.\n"
-      printf "\n"
-      } > "$tmpEMailBodyFile"
     fi
     _SendEMailNotification_ "TAILMON v$version" "$emailSubject" "$tmpEMailBodyFile" "$emailBodyTitle"
   fi
@@ -1938,7 +1804,6 @@ vsetup()
     if [ -f "/opt/bin/tailscale" ]; then tsinstalleddisp="Installed"; else tsinstalleddisp="Not Installed"; fi
     if [ $exitnode -eq 0 ]; then exitnodedisp="No"; elif [ $exitnode -eq 1 ]; then exitnodedisp="Yes"; fi
     if [ $advroutes -eq 0 ]; then advroutesdisp="No"; elif [ $advroutes -eq 1 ]; then advroutesdisp="Yes ($routes)"; fi
-    if [ $accroutes -eq 0 ]; then accroutesdisp="No"; elif [ $accroutes -eq 1 ]; then accroutesdisp="Yes"; fi
     tsver=$(tailscale version | awk 'NR==1 {print $1}') >/dev/null 2>&1
     if [ -z "$tsver" ]; then tsver="0.00"; fi
 
@@ -1948,7 +1813,7 @@ vsetup()
     echo -e "${InvGreen} ${CClear} actions in the management of the TAILMON script.${CClear}"
     echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
     echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 1)${CClear} : Install Tailscale Entware Package(s)         : ${CGreen}$tsinstalleddisp${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(1)${CClear} : Install Tailscale Entware Package(s)         : ${CGreen}$tsinstalleddisp${CClear}"
 
     printf "\33[2K\r"
     printf "${CGreen}\r[Checking Services...Stand By]"
@@ -1964,51 +1829,49 @@ vsetup()
     printf "\33[2K\r"
 
     if [ "$tsinstalleddisp" == "Installed" ]; then
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  |-${CClear}-- ${InvGreen}${CWhite}(R)${CClear}e-${InvGreen}${CWhite}(S)${CClear}tart / S${InvGreen}${CWhite}(T)${CClear}op Tailscale Service${CClear}      |--- ${CGreen}$tsservicedisp${CClear}"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  |-${CClear}-- ${InvGreen}${CWhite}(U)${CClear}p / ${InvGreen}${CWhite}(D)${CClear}own Tailscale Connection${CClear}           |--- ${CGreen}$tsconndisp${CClear}"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  |-${CClear}-- U${InvGreen}${CWhite}(P)${CClear}date Tailscale Binary to latest version  |--- ${CGreen}v$tsver${CClear}"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  |-${CClear}-- ${InvGreen}${CWhite}(I)${CClear}ssue Connection '--reset' Command${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} |-${CClear}-- ${InvGreen}${CWhite}(R)${CClear}e-${InvGreen}${CWhite}(S)${CClear}tart / S${InvGreen}${CWhite}(T)${CClear}op Tailscale Service${CClear}      |--- ${CGreen}$tsservicedisp${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} |-${CClear}-- ${InvGreen}${CWhite}(U)${CClear}p / ${InvGreen}${CWhite}(D)${CClear}own Tailscale Connection${CClear}           |--- ${CGreen}$tsconndisp${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} |-${CClear}-- U${InvGreen}${CWhite}(P)${CClear}date Tailscale Binary to latest version  |--- ${CGreen}v$tsver${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} |-${CClear}-- ${InvGreen}${CWhite}(I)${CClear}ssue Connection '--reset' Command${CClear}"
     fi
 
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 2)${CClear} : Uninstall Tailscale Entware Package(s)${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 3)${CClear} : Set Tailscale Operating Mode                 : ${CGreen}$tsoperatingmode${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(2)${CClear} : Uninstall Tailscale Entware Package(s)${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(3)${CClear} : Set Tailscale Operating Mode                 : ${CGreen}$tsoperatingmode${CClear}"
     if [ "$tsoperatingmode" == "Custom" ]; then
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  |-${CClear}-- Edit Custom ${InvGreen}${CWhite}(O)${CClear}peration Mode Settings${CClear}"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 4)${CClear}${CDkGray} : Configure this Router as Exit Node           : $exitnodedisp${CClear}"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 5)${CClear}${CDkGray} : Advertise Routes on this router              : $advroutesdisp${CClear}"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 6)${CClear}${CDkGray} : Accept Routes on this router                 : $accroutesdisp${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} |-${CClear}-- Edit Custom ${InvGreen}${CWhite}(O)${CClear}peration Mode Settings${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(4)${CClear}${CDkGray} : Configure this Router as Exit Node           : $exitnodedisp${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(5)${CClear}${CDkGray} : Advertise Routes on this router              : $advroutesdisp${CClear}"
     else
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 4)${CClear} : Configure this Router as Exit Node           : ${CGreen}$exitnodedisp${CClear}"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 5)${CClear} : Advertise Routes on this router              : ${CGreen}$advroutesdisp${CClear}"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 6)${CClear} : Enable Site-to-Site functionality on router  : ${CGreen}$accroutesdisp${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(4)${CClear} : Configure this Router as Exit Node           : ${CGreen}$exitnodedisp${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(5)${CClear} : Advertise Routes on this router              : ${CGreen}$advroutesdisp${CClear}"
     fi
     echo -e "${InvGreen} ${CClear}"
     echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
     echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 7)${CClear} : Custom configuration options for TAILMON${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 8)${CClear} : Force reinstall Entware dependencies${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 9)${CClear} : Check for latest updates${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(10)${CClear} : Uninstall TAILMON${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  | ${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( L)${CClear} : Launch TAILMON in Monitoring Mode${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( M)${CClear} : Launch TAILMON in Monitoring Mode using SCREEN${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  | ${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( e)${CClear} : Exit${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(6)${CClear} : Custom configuration options for TAILMON${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(7)${CClear} : Force reinstall Entware dependencies${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(8)${CClear} : Check for latest updates${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(9)${CClear} : Uninstall TAILMON${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} | ${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(L)${CClear} : Launch TAILMON in Monitoring Mode${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(M)${CClear} : Launch TAILMON in Monitoring Mode using SCREEN${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} | ${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(e)${CClear} : Exit${CClear}"
     echo -e "${InvGreen} ${CClear}"
     echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
     echo ""
     if [ "$tsinstalleddisp" == "Installed" ]; then
       if [ "$tsoperatingmode" == "Custom" ]; then
-        read -p "Please select? (1-10, R/S/T/U/D/P/I/O/L/M, e=Exit): " SelectSlot
+        read -p "Please select? (1-9, R/S/T/U/D/P/I/O/L/M, e=Exit): " SelectSlot
       else
-        read -p "Please select? (1-10, R/S/T/U/D/P/I/L/M, e=Exit): " SelectSlot
+        read -p "Please select? (1-9, R/S/T/U/D/P/I/L/M, e=Exit): " SelectSlot
       fi
     else
-      read -p "Please select? (1-10, L/M, e=Exit): " SelectSlot
+      read -p "Please select? (1-9, L/M, e=Exit): " SelectSlot
     fi
       case $SelectSlot in
 
-        [Rr]) echo ""; restarttsc;;
+        [Rr]) echo ""; restartts;;
 
         [Ss]) echo ""; startts;;
 
@@ -2044,17 +1907,13 @@ vsetup()
              if [ -f "/opt/bin/tailscale" ]; then advroutests; fi
            fi ;;
 
-        6) if [ "$tsoperatingmode" != "Custom" ]; then
-             if [ -f "/opt/bin/tailscale" ]; then accroutests; fi
-           fi ;;
+        6) installdependencies;;
 
-        7) installdependencies;;
+        7) reinstalldependencies;;
 
-        8) reinstalldependencies;;
+        8) vupdate;;
 
-        9) vupdate;;
-
-        10) vuninstall;;
+        9) vuninstall;;
 
         [Ee]) echo ""; timer=$timerloop; break;;
 
@@ -2446,7 +2305,6 @@ saveconfig()
      echo 'persistentsettings='$persistentsettings
      echo 'exitnode='$exitnode
      echo 'advroutes='$advroutes
-     echo 'accroutes='$accroutes
      echo 'precmd="'"$precmd"'"'
      echo 'args="'"$args"'"'
      echo 'preargs="'"$preargs"'"'
@@ -2715,9 +2573,8 @@ while true; do
       echo -e "${CWhite}${CGreen}$customcmdline${CClear}"
     else
       if [ $exitnode -eq 1 ]; then exitnodecmd="--advertise-exit-node "; else exitnodecmd=""; fi
-      if [ $advroutes -eq 1 ]; then advroutescmd="--advertise-routes=$routes "; else advroutescmd=""; fi
-      if [ $accroutes -eq 1 ]; then accroutescmd="--accept-routes"; else accroutescmd=""; fi
-      echo -e "${CWhite}${CGreen}$exitnodecmd$advroutescmd$accroutescmd${CClear}"
+      if [ $advroutes -eq 1 ]; then advroutescmd="--advertise-routes=$routes"; else advroutescmd=""; fi
+      echo -e "${CWhite}${CGreen}$exitnodecmd$advroutescmd${CClear}"
     fi
     echo ""
     #read -rsp $'Press any key to continue...\n' -n1 key
@@ -2751,7 +2608,7 @@ while true; do
         applykernelmode
       #make mods to the S06tailscaled service for Custom mode
       elif [ "$tsoperatingmode" == "Custom" ]; then
-        applycustomchanges
+        applycustommode
       fi
 
       printf "\33[2K\r"
@@ -2786,23 +2643,6 @@ while true; do
       echo ""
       sendmessage 1 "Tailscale Service Restarted"
     fi
-  fi
-  
-  #Determine if router rebooted
-  #uptime=$(awk '{printf("%03dd %02dh %02dm %02ds\n",($1/60/60/24),($1/60/60%24),($1/60%60),($1%60))}' /proc/uptime)
-  uptimedays=$(awk '{printf("%1d\n",($1/60/60/24))}' /proc/uptime)
-  uptimehrs=$(awk '{printf("%1d\n",($1/60/60%24))}' /proc/uptime)
-  uptimemins=$(awk '{printf("%1d\n",($1/60%60))}' /proc/uptime)
-
-  if [ $uptimedays -eq 0 ] && [ $uptimehrs -eq 0 ] && [ $uptimemins -le 10 ] && [ $routerboot -eq 0 ]; then
-    # Router must have rebooted and send a notification
-    printf "\33[2K\r"
-    printf "${CGreen}\r[Router appears to have been restarted]"
-    echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - WARNING: Router appears to have been unexpectedly restarted." >> $logfile
-    sleep 1
-    echo ""
-    sendmessage 1 "Router has been restarted"
-    routerboot=1
   fi
 
   #display a standard timer
