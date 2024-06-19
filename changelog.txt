@@ -1,3 +1,9 @@
+v1.0.19   - (June 19, 2024)
+          - PATCH: Thanks to @jksmurf for the detailed writeup on the issues he encountered while trying to
+            uninstall/reinstall TAILMON, along with issues with Entware he was dealing with. After going
+            through the code, it seemed that TAILMON was bypassing the ability to use the express-install
+            method if certain entware prerequisites were already installed. This has been tested and fixed!
+
 v1.0.18   - (June 15, 2024)
           - PATCH: Thanks to @Wheemer1, he noticed that when hitting (R)estart, that it would overwrite the
             custom mode changes that were originally saved with the default custom mode settings. A new
