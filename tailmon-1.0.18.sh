@@ -12,7 +12,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.0.19"
+version="1.0.18"
 beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
@@ -287,14 +287,6 @@ expressinstall()
         echo ""
         opkg update
         echo ""
-        echo -e "Installing Entware ${CGreen}CoreUtils-Timeout${CClear} Package...${CClear}"
-        echo ""
-        opkg install coreutils-timeout
-        echo ""
-        echo -e "Installing Entware ${CGreen}Screen${CClear} Package...${CClear}"
-        echo ""
-        opkg install screen
-        echo ""
         echo -e "${CGreen}Installing Tailscale Package(s)...${CClear}"
         echo ""
         archker=$(opkg print-architecture | grep "armv7-2.6")
@@ -533,6 +525,7 @@ startts()
       /opt/etc/init.d/S06tailscaled start
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service started." >> $logfile
       echo ""
+      #sleep 5
       resettimer=1
 }
 
@@ -550,6 +543,7 @@ stopts()
       /opt/etc/init.d/S06tailscaled stop
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service stopped." >> $logfile
       echo ""
+      #sleep 3
       resettimer=1
 }
 
@@ -2589,7 +2583,7 @@ if [ "$1" == "-noswitch" ]
   then
     clear #last switch before the main program starts
 
-    if [ ! -f $cfgpath ]; then
+    if [ ! -f $cfgpath ] && [ ! -f "/opt/bin/timeout" ] && [ ! -f "/opt/sbin/screen" ]; then
       initialsetup
     fi
 fi
@@ -2768,6 +2762,7 @@ while true; do
       startts
       tsup
 
+      #sleep 3
       echo ""
       sendmessage 1 "Tailscale Service settings out-of-sync"
       resettimer=1
@@ -2786,6 +2781,7 @@ while true; do
       startts
       tsup
 
+      #sleep 3
       resettimer=1
       echo ""
       sendmessage 1 "Tailscale Service Restarted"
