@@ -12,7 +12,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.0.20"
+version="1.0.19"
 beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
@@ -1293,11 +1293,10 @@ exitnodets()
 
   echo -e "${InvGreen} ${InvDkGray}${CWhite} Configure Router as Exit Node                                                         ${CClear}"
   echo -e "${InvGreen} ${CClear}"
-  echo -e "${InvGreen} ${CClear} A Tailscale Exit Node is a feature that lets you route all internet traffic,"
-  echo -e "${InvGreen} ${CClear} including internet traffic from non-Tailscale devices, through a specific device"
-  echo -e "${InvGreen} ${CClear} on your Tailscale network (known as a tailnet). The device routing your traffic"
-  echo -e "${InvGreen} ${CClear} (this router) is called an 'exit node'. Please indicate below if you want to"
-  echo -e "${InvGreen} ${CClear} enable this feature"
+  echo -e "${InvGreen} ${CClear} A Tailscale Exit Node is a feature that lets you route all non-Tailscale internet"
+  echo -e "${InvGreen} ${CClear} traffic through a specific device on your Tailscale network (known as a tailnet)."
+  echo -e "${InvGreen} ${CClear} The device routing your traffic (this router) is called an 'exit node'. Please"
+  echo -e "${InvGreen} ${CClear} indicate below if you want to enable this feature"
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} (Default = No)"
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
@@ -1749,19 +1748,6 @@ fi
       printf "<b>WARNING: TAILMON</b> has detected that the router may have rebooted or was restarted. TAILMON.\n"
       printf "has reset the service, and reestablished a connection to your Tailnet. Please investigate if this\n"
       printf "behavior continues to persist.\n"
-      printf "\n"
-      } > "$tmpEMailBodyFile"
-
-    # Rung: added request email functionality
-    elif [ "$2" == "Tailmon email requested" ]; then
-      emailSubject="WARNING: Router Has Unexpectedly Restarted"
-      emailBodyTitle="WARNING: Router Has Unexpectedly Restarted"
-      {
-      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
-      printf "\n"
-      printf "<b>WARNING: TAILMON</b> has been requested to send this email from the services-start script.\n"
-      printf "If no additional email is received, this means that TAILMON has failed to start for some reason.\n"
-      printf "Please investigate if this behavior continues to persist.\n"
       printf "\n"
       } > "$tmpEMailBodyFile"
     fi
@@ -2492,8 +2478,7 @@ if [ $# -eq 0 ]
 fi
 
 # Check and see if an invalid commandline option is being used
-# Rung: adding email switch
-if [ "$1" == "-h" ] || [ "$1" == "-help" ] || [ "$1" == "-setup" ] || [ "$1" == "-bw" ] || [ "$1" == "-noswitch" ] || [ "$1" == "-screen" ] || [ "$1" == "-now" ] || [ "$1" == "-email" ]
+if [ "$1" == "-h" ] || [ "$1" == "-help" ] || [ "$1" == "-setup" ] || [ "$1" == "-bw" ] || [ "$1" == "-noswitch" ] || [ "$1" == "-screen" ] || [ "$1" == "-now" ]
   then
     clear
   else
@@ -2528,14 +2513,6 @@ if [ "$1" == "-h" ] || [ "$1" == "-help" ]
   echo " -screen -now (runs tailmon in screen background immediately)"
   echo ""
   echo -e "${CClear}"
-  exit 0
-fi
-
-# Rung: added email switch
-if [ "$1" == "-email" ]
-  then
-  amtmemailfailure=1
-  sendmessage 1 "Tailmon email requested"
   exit 0
 fi
 

@@ -1,3 +1,11 @@
+v1.0.20   - (July 27, 2024)
+          - PATCH: Thanks to @Rung, he has contributed some changes to TAILMON that adds an "-email" switch
+            to the script. Per @Rung: Adds a new switch "-email" to be used by services-start script to warn
+            the user that tailmon should be sending a successful start email soon. To automate at install,
+            tailmon would have to create/update the services-start script and add something like:
+            (sleep 30 && /jffs/scripts/tailmon.sh -email) >/dev/null 2>&1  & # reboot warning 
+            Thank you! :)
+
 v1.0.19   - (June 19, 2024)
           - PATCH: Thanks to @jksmurf for the detailed writeup on the issues he encountered while trying to
             uninstall/reinstall TAILMON, along with issues with Entware he was dealing with. After going
