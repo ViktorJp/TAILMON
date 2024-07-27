@@ -1750,6 +1750,19 @@ fi
       printf "behavior continues to persist.\n"
       printf "\n"
       } > "$tmpEMailBodyFile"
+
+    # Rung: added request email functionality
+    elif [ "$2" == "Tailmon email requested" ]; then
+      emailSubject="WARNING: Router Has Unexpectedly Restarted"
+      emailBodyTitle="WARNING: Router Has Unexpectedly Restarted"
+      {
+      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+      printf "\n"
+      printf "<b>WARNING: TAILMON</b> has been requested to send this email from the services-start script.\n"
+      printf "If no additional email is received, this means that TAILMON has failed to start for some reason.\n"
+      printf "Please investigate if this behavior continues to persist.\n"
+      printf "\n"
+      } > "$tmpEMailBodyFile"
     fi
     _SendEMailNotification_ "TAILMON v$version" "$emailSubject" "$tmpEMailBodyFile" "$emailBodyTitle"
   fi
@@ -2478,7 +2491,8 @@ if [ $# -eq 0 ]
 fi
 
 # Check and see if an invalid commandline option is being used
-if [ "$1" == "-h" ] || [ "$1" == "-help" ] || [ "$1" == "-setup" ] || [ "$1" == "-bw" ] || [ "$1" == "-noswitch" ] || [ "$1" == "-screen" ] || [ "$1" == "-now" ]
+# Rung: adding email switch
+if [ "$1" == "-h" ] || [ "$1" == "-help" ] || [ "$1" == "-setup" ] || [ "$1" == "-bw" ] || [ "$1" == "-noswitch" ] || [ "$1" == "-screen" ] || [ "$1" == "-now" ] || [ "$1" == "-email" ]
   then
     clear
   else
@@ -2513,6 +2527,14 @@ if [ "$1" == "-h" ] || [ "$1" == "-help" ]
   echo " -screen -now (runs tailmon in screen background immediately)"
   echo ""
   echo -e "${CClear}"
+  exit 0
+fi
+
+# Rung: added email switch
+if [ "$1" == "-email" ]
+  then
+  amtmemailfailure=1
+  sendmessage 1 "Tailmon email requested"
   exit 0
 fi
 
