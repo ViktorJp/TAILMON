@@ -788,7 +788,8 @@ clear
   if [ "$localver" != "$serverver" ]
     then
       printf "\33[2K\r"
-      printf "${CGreen}\r[Downloading New TAILMON v$serverver]"
+      printf "${CGreen}\r[Downloading New TAILMON v$serverver]\n"
+      echo -e "${CClear}"
       sleep 2
       curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
       officialver=$?
@@ -860,10 +861,9 @@ clear
   if [ "$localtsver" != "$servertsver" ]
     then
       printf "\33[2K\r"
-      printf "${CGreen}\r[Downloading New Tailscale v$servertsver]"
-      echo ""
-      echo ""
-      sleep 2
+      printf "${CGreen}\r[Downloading New Tailscale v$servertsver]\n"
+      echo -e "${CClear}"
+      sleep 1
       tailscale update -yes
       officialtsver=$?
       if [ $officialtsver -ne 0 ]
@@ -908,12 +908,20 @@ clear
       printf "${CGreen}\r[Tailscale Service/Connection Successfully Restarted]\n"
       echo -e "${CClear}"
       sleep 1
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Autoupdate Completed Successfully]\n"
+      echo -e "${CClear}"
+      sleep 1
       rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
       exit 0
 
     else
     printf "\33[2K\r"
     printf "${CGreen}\r[Local Tailscale Version is the Latest Available...Exiting]\n"
+    echo -e "${CClear}"
+    sleep 1
+    printf "\33[2K\r"
+    printf "${CGreen}\r[Autoupdate Completed Successfully]\n"
     echo -e "${CClear}"
     sleep 1
     rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
@@ -2383,7 +2391,7 @@ vsetup()
     if [ $accroutes -eq 0 ]; then accroutesdisp="No"; elif [ $accroutes -eq 1 ]; then accroutesdisp="Yes"; fi
     tsver=$(tailscale version | awk 'NR==1 {print $1}') >/dev/null 2>&1
     if [ -z "$tsver" ]; then tsver="0.00"; fi
-    	
+
     echo -e "${InvGreen} ${InvDkGray}${CWhite} TAILMON Main Setup and Configuration Menu                                             ${CClear}"
     echo -e "${InvGreen} ${CClear}"
     echo -e "${InvGreen} ${CClear} Please choose from the various options below, which allow you to perform high level${CClear}"
@@ -2547,7 +2555,7 @@ vconfig()
     elif [ $autostart -eq 1 ]; then
       autostartdisp="Enabled"
     fi
-    
+
     #scheduler colors and indicators
     if [ "$schedule" = "0" ]
     then
@@ -2668,7 +2676,7 @@ vconfig()
         ;;
 
         6) autostart;;
-        
+
         7) scheduleautoupdates;;
 
         [Ee]) echo -e "${CClear}\n[Exiting]"; sleep 1; resettimer=1; break ;;
