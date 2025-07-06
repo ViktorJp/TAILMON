@@ -2578,7 +2578,7 @@ vconfig()
     echo -e "${InvGreen} ${CClear}"
     echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
     echo ""
-    read -p "Please select? (1-6, e=Exit): " SelectSlot
+    read -p "Please select? (1-7, e=Exit): " SelectSlot
       case $SelectSlot in
         1)
           clear
