@@ -12,8 +12,8 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.0.20"
-beta=0
+version="1.1.1"
+beta=1
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
 dlverpath="/jffs/addons/tailmon.d/version.txt"                       # Static path to the version file
@@ -732,6 +732,179 @@ tsupdate()
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
+# autoupdate will automatically download and install new TAILMON scripts and Tailscale binaries - run via CRON job/switch
+
+autoupdate()
+{
+
+clear
+
+  #Display tailmon client header
+  echo -en "${InvGreen} ${InvDkGray} TAILMON - v"
+  printf "%-8s" $version
+  echo -e "                      ${CWhite}Run Auto Update${InvDkGray}                  $tzspaces$(date) ${CClear}"
+  echo ""
+
+  printf "\33[2K\r"
+  printf "${CGreen}\r[Checking Local TAILMON Version]"
+
+  # Copy current version of script into a version file
+  echo "$version" > "/jffs/addons/tailmon.d/localver.txt"
+  sleep 1
+
+  printf "\33[2K\r"
+  printf "${CGreen}\r[Checking Official TAILMON Version]"
+  sleep 1
+
+  # Download the latest version file from the source repository
+  curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
+  officialverchk=$?
+  if [ $officialverchk -ne 0 ]
+    then
+    printf "\33[2K\r"
+    printf "${CGreen}\r[Unable to Determine Official TAILMON Version...Exiting]\n"
+    echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to check for official TAILMON version - please check your internet connection." >> $logfile
+    echo -e "${CClear}"
+    sleep 1
+    exit 1
+  fi
+  sleep 1
+
+  printf "\33[2K\r"
+  printf "${CGreen}\r[Comparing TAILMON Versions]"
+  sleep 1
+
+  # Check differences in version and download if newer official version is present
+  localver=$(cat "/jffs/addons/tailmon.d/localver.txt")
+  serverver=$(cat "/jffs/addons/tailmon.d/version.txt")
+  if [ "$localver" != "$serverver" ]
+    then
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Downloading New TAILMON v$serverver]"
+      sleep 2
+      curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+      officialver=$?
+      if [ $officialver -ne 0 ]
+        then
+          printf "\33[2K\r"
+          printf "${CGreen}\r[Unable to Download Official TAILMON Version...Exiting]\n"
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to download official TAILMON version - please check your internet connection." >> $logfile
+          echo -e "${CClear}"
+          sleep 1
+          exit 1
+      fi
+      echo > /jffs/addons/tailmon.d/updated.txt
+    else
+    printf "\33[2K\r"
+    printf "${CGreen}\r[Local TAILMON Version is the Latest Available]"
+    sleep 1
+  fi
+  sleep 1
+
+  printf "\33[2K\r"
+  printf "${CGreen}\r[Checking Local Tailscale Version]"
+  sleep 1
+
+  # Checking for local Tailscale version
+  echo $(tailscale version | awk 'NR==1 {print $1}') > /jffs/addons/tailmon.d/localtsver.txt
+  localtsverchk=$?
+  if [ $localtsverchk -ne 0 ]
+    then
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Unable to Determine Local Tailscale Version...Exiting]\n"
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to determine local Tailscale version - please check your installation." >> $logfile
+      echo -e "${CClear}"
+      sleep 2
+      exit 1
+  fi
+  sleep 1
+
+  printf "\33[2K\r"
+  printf "${CGreen}\r[Checking Official Tailscale Version]"
+  sleep 1
+
+  # Checking for upstream Tailscale version
+  echo $(tailscale version --upstream | grep "upstream" | cut -d ':' -f 2) > /jffs/addons/tailmon.d/tsversion.txt
+  upstreamtsverchk=$?
+  if [ $upstreamtsverchk -ne 0 ]
+    then
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Unable to Determine Official Tailscale Version...Exiting]\n"
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to determine Official Tailscale version - please check your installation/internet connection." >> $logfile
+      echo -e "${CClear}"
+      sleep 1
+      exit 1
+  fi
+  sleep 1
+
+  printf "\33[2K\r"
+  printf "${CGreen}\r[Comparing Tailscale Versions]"
+  sleep 1
+
+  # Check differences in version and download if newer official version is present
+  localtsver=$(cat "/jffs/addons/tailmon.d/localtsver.txt")
+  servertsver=$(cat "/jffs/addons/tailmon.d/tsversion.txt")
+  if [ "$localtsver" != "$servertsver" ]
+    then
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Downloading New Tailscale v$servertsver]"
+      echo ""
+      echo ""
+      sleep 2
+      tailscale update -yes
+      officialtsver=$?
+      if [ $officialtsver -ne 0 ]
+        then
+          printf "\33[2K\r"
+          printf "${CGreen}\r[Unable to Download Official Tailscale Version...Exiting]\n"
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to download official Tailscale version - please check your installation/internet connection." >> $logfile
+          echo -e "${CClear}"
+          sleep 1
+          exit 1
+      fi
+
+      # Upon a successful update, restart Tailscale services
+      echo ""
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Restarting Tailscale Service/Connection]\n"
+      echo -e "${CClear}"
+      sleep 1
+
+      tsdown
+      stopts
+
+      #make mods to the S06tailscaled service for Userspace mode
+      if [ "$tsoperatingmode" == "Userspace" ]; then
+        applyuserspacemode
+      #make mods to the S06tailscaled service for Kernel mode
+      elif [ "$tsoperatingmode" == "Kernel" ]; then
+        applykernelmode
+      #make mods to the S06tailscaled service for Custom mode
+      elif [ "$tsoperatingmode" == "Custom" ]; then
+        applycustomchanges
+      fi
+
+      startts
+      tsup
+
+      echo ""
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Tailscale Service/Connection Successfully Restarted]\n"
+      echo -e "${CClear}"
+      sleep 1
+      exit 0
+
+    else
+    printf "\33[2K\r"
+    printf "${CGreen}\r[Local Tailscale Version is the Latest Available...Exiting]\n"
+    echo -e "${CClear}"
+    sleep 1
+    exit 0
+  fi
+
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
 # autostart lets you enable the ability for tailmon to autostart after a router reboot
 
 autostart()
@@ -1274,7 +1447,7 @@ applycustomchanges()
 
   preargs_regexp="$(printf '%s' "$preargs" | sed -e 's/[]\/$*.^|[]/\\&/g' | sed ':a;N;$!ba;s,\n,\\n,g')"
   sed -i "s/^PREARGS=.*/PREARGS=\"$preargs_regexp\"/" "/opt/etc/init.d/S06tailscaled"
-  
+
   saveconfig
   timer=$timerloop
   restartts=1
@@ -1496,7 +1669,7 @@ accroutests()
       startts
       tsup
       sleep 3
-      
+
     fi
   fi
 
@@ -2493,7 +2666,7 @@ fi
 
 # Check and see if an invalid commandline option is being used
 # Rung: adding email switch
-if [ "$1" == "-h" ] || [ "$1" == "-help" ] || [ "$1" == "-setup" ] || [ "$1" == "-bw" ] || [ "$1" == "-noswitch" ] || [ "$1" == "-screen" ] || [ "$1" == "-now" ] || [ "$1" == "-email" ]
+if [ "$1" == "-h" ] || [ "$1" == "-help" ] || [ "$1" == "-setup" ] || [ "$1" == "-bw" ] || [ "$1" == "-noswitch" ] || [ "$1" == "-screen" ] || [ "$1" == "-now" ] || [ "$1" == "-email" ] || [ "$1" == "-autoupdate" ]
   then
     clear
   else
@@ -2537,6 +2710,20 @@ if [ "$1" == "-email" ]
   amtmemailfailure=1
   sendmessage 1 "Tailmon email requested"
   exit 0
+fi
+
+# Check to see if autoupdate is being called
+if [ "$1" == "-autoupdate" ]
+  then
+    # Grab the TAILMON config file and read it in
+    if [ -f $config ]; then
+      source $config
+    else
+      initialsetup
+    fi
+
+    autoupdate
+    exit 0
 fi
 
 # Check to see if a second command is being passed to remove color
@@ -2757,6 +2944,18 @@ while true; do
     exec sh /jffs/scripts/tailmon.sh -setup
   fi
 
+  #Determine if a TAILMON autoupdate has happened
+  if [ -f /jffs/addons/tailmon.d/updated.txt ]
+  	then
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Updating TAILMON to Latest Version]"
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Updating TAILMON to latest version." >> $logfile
+      sleep 1
+      rm -f /jffs/addons/tailmon.d/updated.txt >/dev/null 2>&1
+      exec sh /jffs/scripts/tailmon.sh
+      exit 0
+  fi
+
   #Determine if S06tailscaled service settings have changed
   if [ $tsinstalled -eq 1 ] && [ $persistentsettings -eq 1 ]; then
 
@@ -2814,7 +3013,7 @@ while true; do
       sendmessage 1 "Tailscale Service Restarted"
     fi
   fi
-  
+
   #Determine if router rebooted
   #uptime=$(awk '{printf("%03dd %02dh %02dm %02ds\n",($1/60/60/24),($1/60/60%24),($1/60%60),($1%60))}' /proc/uptime)
   uptimedays=$(awk '{printf("%1d\n",($1/60/60/24))}' /proc/uptime)
