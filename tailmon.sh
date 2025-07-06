@@ -24,6 +24,9 @@ keepalive=0
 timerloop=60
 logsize=2000
 autostart=0
+schedule=0                                                           # Scheduler enable y/n
+schedulehrs=1                                                        # Scheduler hours
+schedulemin=0                                                        # Scheduler mins
 amtmemailsuccess=0
 amtmemailfailure=0
 exitnode=0
@@ -918,6 +921,198 @@ clear
   fi
 
 }
+
+# -------------------------------------------------------------------------------------------------------------------------
+# schedulevpnreset lets you enable and set a time for a scheduled daily vpn reset
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Oct-06] ##
+##----------------------------------------##
+scheduleautoupdates()
+{
+
+while true
+do
+  clear
+  echo -e "${InvGreen} ${InvDkGray}${CWhite} TAILMON Autoupdate Scheduler                                                          ${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} Please indicate below if you would like to enable and schedule a daily autoupdate CRON"
+  echo -e "${InvGreen} ${CClear} job. This will check for both TAILMON and Tailscale updates. (Default = Disabled)"
+  echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  if [ "$schedule" = "0" ]
+  then
+     echo -e "${InvGreen} ${CClear} Current: ${CRed}Disabled${CClear}"
+  elif [ "$schedule" = "1" ]
+  then
+     schedhrs="$(awk "BEGIN {printf \"%02.f\",${schedulehrs}}")"
+     schedmin="$(awk "BEGIN {printf \"%02.f\",${schedulemin}}")"
+     schedtime="${CGreen}$schedhrs:$schedmin${CClear}"
+     echo -e "${InvGreen} ${CClear} Current: ${CGreen}Enabled, Daily @ $schedtime${CClear}"
+  fi
+  echo
+  read -p 'Schedule Daily Check? (0=No, 1=Yes, e=Exit): ' newSchedule
+  if [ -z "$newSchedule" ] ; then newSchedule="${schedule:=0}" ; fi
+
+  if [ "$newSchedule" = "0" ]
+  then
+    schedule=0
+    if [ -f /jffs/scripts/services-start ]
+    then
+      sed -i -e '/tailmon.sh/d' /jffs/scripts/services-start
+      cru d RunTAILMONcheck
+      schedulehrs=1
+      schedulemin=0
+      echo ""
+      echo -e "${CGreen}[Modifiying SERVICES-START file]..."
+      sleep 2
+      echo ""
+      echo -e "${CGreen}[Modifying CRON jobs]..."
+      sleep 2
+      echo -e "$(date +'%b %d %Y %X') $(_GetLAN_HostName_) TAILMON[$$] - INFO: Autoupdate Scheduled Check Disabled" >> $logfile
+      saveconfig
+      break
+    fi
+
+  elif [ "$newSchedule" = "1" ]
+  then
+    schedule=1
+    echo
+    echo -e "${InvGreen} ${InvDkGray}${CWhite} Select CRON Job Time                                                                  ${CClear}"
+    echo -e "${InvGreen} ${CClear}"
+    echo -e "${InvGreen} ${CClear} Please indicate below what time you would like to schedule a daily Autoupdate CRON"
+    echo -e "${InvGreen} ${CClear} job. (Default = 1 hr, 0 min = 01:00 = 1:00am)"
+    echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+    echo
+    read -p 'Schedule HOURS [0-23]?: ' newScheduleHrs
+    if [ -z "$newScheduleHrs" ]
+    then
+        if _ValidateCronJobHour_ "$schedulehrs"
+        then scheduleHrsOK=true
+        else scheduleHrsOK=false
+        fi
+    elif _ValidateCronJobHour_ "$newScheduleHrs"
+    then
+        scheduleHrsOK=true
+        schedulehrs="$newScheduleHrs"
+    else
+        scheduleHrsOK=false
+        schedulehrs="${schedulehrs:=1}"
+        printf "${CRed}*ERROR*: INVALID Entry.${CClear}\n\n"
+    fi
+    read -p 'Schedule MINUTES [0-59]?: ' newScheduleMins
+    if [ -z "$newScheduleMins" ]
+    then
+        if _ValidateCronJobMinute_ "$schedulemin"
+        then scheduleMinsOK=true
+        else scheduleMinsOK=false
+        fi
+    elif _ValidateCronJobMinute_ "$newScheduleMins"
+    then
+        scheduleMinsOK=true
+        schedulemin="$newScheduleMins"
+    else
+        scheduleMinsOK=false
+        schedulemin="${schedulemin:=0}"
+        printf "${CRed}*ERROR*: INVALID Entry.${CClear}\n"
+    fi
+    if ! "$scheduleHrsOK" || ! "$scheduleMinsOK"
+    then
+        doResetSave=false
+        if ! "$scheduleHrsOK" && ! _ValidateCronJobHour_ "$schedulehrs"
+        then schedulehrs=1 ; doResetSave=true
+        fi
+        if ! "$scheduleMinsOK" && ! _ValidateCronJobMinute_ "$schedulemin"
+        then schedulemin=0 ; doResetSave=true
+        fi
+        if "$doResetSave"
+        then
+            schedule=0
+            saveconfig
+            printf "\n${CRed}INVALID input found. Resetting values.${CClear}\n\n"
+        else
+            printf "\n${CRed}INVALID input found. No changes made.${CClear}\n\n"
+        fi
+        echo -e "${CClear}[Exiting]"
+        timer="$timerloop"
+        sleep 3
+        break
+    fi
+    echo
+    echo -e "${CGreen}[Modifying SERVICES-START file]..."
+    sleep 2
+
+    if [ -f /jffs/scripts/services-start ]
+    then
+      if ! grep -q -F "sh /jffs/scripts/tailmon.sh -autoupdate" /jffs/scripts/services-start
+      then
+        echo 'cru a RunTAILMONcheck "'"$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"'"' >> /jffs/scripts/services-start
+        cru a RunTAILMONcheck "$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"
+      else
+        #delete and re-add if it already exists in case there's a time change
+        sed -i -e '/tailmon.sh/d' /jffs/scripts/services-start
+        cru d RunTAILMONcheck
+        echo 'cru a RunTAILMONcheck "'"$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"'"' >> /jffs/scripts/services-start
+        cru a RunTAILMONcheck "$schedulemin $schedulehrs * * * sh /jffs/scripts/vpnmon-r3.sh -reset"
+      fi
+    else
+      echo 'cru a RunTAILMONcheck "'"$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"'"' >> /jffs/scripts/services-start
+      chmod 755 /jffs/scripts/services-start
+      cru a RunTAILMONcheck "$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"
+    fi
+
+    echo
+    echo -e "${CGreen}[Modifying CRON jobs]..."
+    sleep 2
+    echo -e "$(date +'%b %d %Y %X') $(_GetLAN_HostName_) TAILMON[$$] - INFO: Autoupdate Scheduled Check Enabled" >> $logfile
+    saveconfig
+    break
+
+  elif [ "$newSchedule" = "e" ]
+  then
+     echo ; echo -e "${CClear}[Exiting]"
+     sleep 2
+     break
+  else
+     schedule="${schedule:=0}"
+     schedulehrs="${schedulehrs:=1}"
+     schedulemin="${schedulemin:=0}"
+     saveconfig
+  fi
+
+done
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Oct-06] ##
+##-------------------------------------##
+_ValidateCronJobHour_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   if echo "$1" | grep -qE "^(0|[1-9][0-9]?)$" && \
+      [ "$1" -ge 0 ] && [ "$1" -lt 24 ]
+   then return 0 ; else return 1 ; fi
+}
+
+_ValidateCronJobMinute_()
+{
+    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+    if echo "$1" | grep -qE "^(0|[1-9][0-9]?)$" && \
+       [ "$1" -ge 0 ] && [ "$1" -lt 60 ]
+    then return 0 ; else return 1 ; fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Oct-05] ##
+##-------------------------------------##
+_SetLAN_HostName_()
+{
+   [ -z "${LAN_HostName:+xSETx}" ] && \
+   LAN_HostName="$($timeoutcmd$timeoutsec nvram get lan_hostname)"
+}
+
+_GetLAN_HostName_()
+{ _SetLAN_HostName_ ; echo "$LAN_HostName" ; }
 
 # -------------------------------------------------------------------------------------------------------------------------
 # autostart lets you enable the ability for tailmon to autostart after a router reboot
@@ -2188,7 +2383,7 @@ vsetup()
     if [ $accroutes -eq 0 ]; then accroutesdisp="No"; elif [ $accroutes -eq 1 ]; then accroutesdisp="Yes"; fi
     tsver=$(tailscale version | awk 'NR==1 {print $1}') >/dev/null 2>&1
     if [ -z "$tsver" ]; then tsver="0.00"; fi
-
+    	
     echo -e "${InvGreen} ${InvDkGray}${CWhite} TAILMON Main Setup and Configuration Menu                                             ${CClear}"
     echo -e "${InvGreen} ${CClear}"
     echo -e "${InvGreen} ${CClear} Please choose from the various options below, which allow you to perform high level${CClear}"
@@ -2223,7 +2418,7 @@ vsetup()
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  |-${CClear}-- Edit Custom ${InvGreen}${CWhite}(O)${CClear}peration Mode Settings${CClear}"
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 4)${CClear}${CDkGray} : Configure this Router as Exit Node           : $exitnodedisp${CClear}"
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 5)${CClear}${CDkGray} : Advertise Routes on this router              : $advroutesdisp${CClear}"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 6)${CClear}${CDkGray} : Accept Routes on this router                 : $accroutesdisp${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 6)${CClear}${CDkGray} : Enable Site-to-Site functionality on router  : $accroutesdisp${CClear}"
     else
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 4)${CClear} : Configure this Router as Exit Node           : ${CGreen}$exitnodedisp${CClear}"
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 5)${CClear} : Advertise Routes on this router              : ${CGreen}$advroutesdisp${CClear}"
@@ -2352,6 +2547,17 @@ vconfig()
     elif [ $autostart -eq 1 ]; then
       autostartdisp="Enabled"
     fi
+    
+    #scheduler colors and indicators
+    if [ "$schedule" = "0" ]
+    then
+       schedtime="${CDkGray}01:00${CClear}"
+    elif [ "$schedule" = "1" ]
+    then
+       schedhrs="$(printf "%02d" "$schedulehrs")"
+       schedmin="$(printf "%02d" "$schedulemin")"
+       schedtime="${CGreen}$schedhrs:$schedmin${CClear}"
+    fi
 
     clear
     echo -e "${InvGreen} ${InvDkGray}${CWhite} TAILMON Configuration Option                                                          ${CClear}"
@@ -2366,6 +2572,7 @@ vconfig()
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(4)${CClear} : AMTM Email Notifications on Success/Failure  : ${CGreen}$amtmemailsuccfaildisp"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(5)${CClear} : Keep settings on Tailscale Entware updates   : ${CGreen}$persistentsettingsdisp"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(6)${CClear} : Autostart TAILMON on Reboot                  : ${CGreen}$autostartdisp"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(7)${CClear} : Schedule TAILMON + Tailscale Autoupdate      : ${CGreen}$schedtime${CClear}"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite} | ${CClear}"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(e)${CClear} : Exit${CClear}"
     echo -e "${InvGreen} ${CClear}"
@@ -2461,6 +2668,8 @@ vconfig()
         ;;
 
         6) autostart;;
+        
+        7) scheduleautoupdates;;
 
         [Ee]) echo -e "${CClear}\n[Exiting]"; sleep 1; resettimer=1; break ;;
 
@@ -2687,6 +2896,9 @@ saveconfig()
      echo 'timerloop='$timerloop
      echo 'logsize='$logsize
      echo 'autostart='$autostart
+     echo 'schedule='$schedule
+     echo 'schedulehrs='$schedulehrs
+     echo 'schedulemin='$schedulemin
      echo 'amtmemailsuccess='$amtmemailsuccess
      echo 'amtmemailfailure='$amtmemailfailure
      echo 'tsoperatingmode="'"$tsoperatingmode"'"'
