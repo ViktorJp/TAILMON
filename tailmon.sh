@@ -739,6 +739,9 @@ autoupdate()
 
 clear
 
+  # Put TAILMON into maintenance mode
+  echo > /jffs/addons/tailmon.d/updating.txt
+
   #Display tailmon client header
   echo -en "${InvGreen} ${InvDkGray} TAILMON - v"
   printf "%-8s" $version
@@ -765,7 +768,9 @@ clear
     printf "${CGreen}\r[Unable to Determine Official TAILMON Version...Exiting]\n"
     echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to check for official TAILMON version - please check your internet connection." >> $logfile
     echo -e "${CClear}"
+    sendmessage 1 "Unable to reach TAILMON repository"
     sleep 1
+    rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
     exit 1
   fi
   sleep 1
@@ -790,7 +795,9 @@ clear
           printf "${CGreen}\r[Unable to Download Official TAILMON Version...Exiting]\n"
           echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to download official TAILMON version - please check your internet connection." >> $logfile
           echo -e "${CClear}"
+          sendmessage 1 "Unable to reach TAILMON repository"
           sleep 1
+          rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
           exit 1
       fi
       echo > /jffs/addons/tailmon.d/updated.txt
@@ -815,6 +822,7 @@ clear
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to determine local Tailscale version - please check your installation." >> $logfile
       echo -e "${CClear}"
       sleep 2
+      rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
       exit 1
   fi
   sleep 1
@@ -832,7 +840,9 @@ clear
       printf "${CGreen}\r[Unable to Determine Official Tailscale Version...Exiting]\n"
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to determine Official Tailscale version - please check your installation/internet connection." >> $logfile
       echo -e "${CClear}"
+      sendmessage 1 "Unable to reach Tailscale repository"
       sleep 1
+      rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
       exit 1
   fi
   sleep 1
@@ -859,9 +869,12 @@ clear
           printf "${CGreen}\r[Unable to Download Official Tailscale Version...Exiting]\n"
           echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to download official Tailscale version - please check your installation/internet connection." >> $logfile
           echo -e "${CClear}"
+          sendmessage 1 "Unable to reach Tailscale repository"
           sleep 1
+          rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
           exit 1
       fi
+      sendmessage 0 "Tailscale Successfully Updated"
 
       # Upon a successful update, restart Tailscale services
       echo ""
@@ -892,6 +905,7 @@ clear
       printf "${CGreen}\r[Tailscale Service/Connection Successfully Restarted]\n"
       echo -e "${CClear}"
       sleep 1
+      rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
       exit 0
 
     else
@@ -899,6 +913,7 @@ clear
     printf "${CGreen}\r[Local Tailscale Version is the Latest Available...Exiting]\n"
     echo -e "${CClear}"
     sleep 1
+    rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
     exit 0
   fi
 
@@ -1924,7 +1939,6 @@ fi
       printf "behavior continues to persist.\n"
       printf "\n"
       } > "$tmpEMailBodyFile"
-
     # Rung: added request email functionality
     elif [ "$2" == "Tailmon email requested" ]; then
       emailSubject="WARNING: Router Has Unexpectedly Restarted"
@@ -1934,6 +1948,28 @@ fi
       printf "\n"
       printf "<b>WARNING: TAILMON</b> has been requested to send this email from the services-start script.\n"
       printf "If no additional email is received, this means that TAILMON has failed to start for some reason.\n"
+      printf "Please investigate if this behavior continues to persist.\n"
+      printf "\n"
+      } > "$tmpEMailBodyFile"
+    elif [ "$2" == "Unable to reach TAILMON repository" ]; then
+      emailSubject="WARNING: Router unable to reach TAILMON Repository"
+      emailBodyTitle="WARNING: Router unable to reach TAILMON Repository"
+      {
+      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+      printf "\n"
+      printf "<b>WARNING: TAILMON</b> is unable to reach the TAILMON repository on GitHub in order to perform\n"
+      printf "an autoupdate function. Please check your internet connectivity or any blocking tools in place.\n"
+      printf "Please investigate if this behavior continues to persist.\n"
+      printf "\n"
+      } > "$tmpEMailBodyFile"
+    elif [ "$2" == "Unable to reach Tailscale repository" ]; then
+      emailSubject="WARNING: Router unable to reach Tailscale Repository"
+      emailBodyTitle="WARNING: Router unable to reach Tailscale Repository"
+      {
+      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+      printf "\n"
+      printf "<b>WARNING: TAILMON</b> is unable to reach the Tailscale repository in order to perform an\n"
+      printf "autoupdate. Please check your internet connectivity or any blocking tools in place.\n"
       printf "Please investigate if this behavior continues to persist.\n"
       printf "\n"
       } > "$tmpEMailBodyFile"
@@ -1967,6 +2003,24 @@ fi
       printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
       printf "\n"
       printf "<b>SUCCESS: TAILMON</b> has changed Tailscale Operating Mode to Custom mode\n"
+      printf "\n"
+      } > "$tmpEMailBodyFile"
+    elif [ "$2" == "Tailscale Successfully Updated" ]; then
+      emailSubject="SUCCESS: Tailscale was successfully updated via autoupdate"
+      emailBodyTitle="SUCCESS: Tailscale was successfully updated via autoupdate"
+      {
+      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+      printf "\n"
+      printf "<b>SUCCESS: TAILMON</b> has successfully autoupdated Tailscale to the latest version.\n"
+      printf "\n"
+      } > "$tmpEMailBodyFile"
+    elif [ "$2" == "TAILMON Script Successfully Updated" ]; then
+      emailSubject="SUCCESS: TAILMON was successfully updated via autoupdate"
+      emailBodyTitle="SUCCESS: TAILMON was successfully updated via autoupdate"
+      {
+      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+      printf "\n"
+      printf "<b>SUCCESS: TAILMON</b> was successfully updated to the latest version via autoupdate.\n"
       printf "\n"
       } > "$tmpEMailBodyFile"
     fi
@@ -2653,6 +2707,9 @@ saveconfig()
 # Begin main commandline switch logic
 # -------------------------------------------------------------------------------------------------------------------------
 
+# Remove Maintenance Mode file lock
+rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
+
 # Check for updates
 updatecheck
 
@@ -2845,6 +2902,15 @@ while true; do
     initialsetup
   fi
 
+  while [ -f /jffs/addons/tailmon.d/updating.txt ]; do
+    clear
+    echo -e "${CGreen}[TAILMON is in Maintenance Mode]${CClear}"
+    echo ""
+    echo -e "Trying again in 30 seconds..."
+    echo ""
+    spinner 30
+  done
+
   if [ -f "/opt/bin/tailscale" ]; then
     tsinstalled=1
     clear
@@ -2944,13 +3010,14 @@ while true; do
     exec sh /jffs/scripts/tailmon.sh -setup
   fi
 
-  #Determine if a TAILMON autoupdate has happened
+  #Determine if a TAILMON autoupdate has happened and restart script
   if [ -f /jffs/addons/tailmon.d/updated.txt ]
-  	then
+    then
       printf "\33[2K\r"
       printf "${CGreen}\r[Updating TAILMON to Latest Version]"
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Updating TAILMON to latest version." >> $logfile
       sleep 1
+      sendmessage 0 "TAILMON Script Successfully Updated"
       rm -f /jffs/addons/tailmon.d/updated.txt >/dev/null 2>&1
       exec sh /jffs/scripts/tailmon.sh
       exit 0
