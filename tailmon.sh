@@ -1061,7 +1061,7 @@ do
         sed -i -e '/tailmon.sh/d' /jffs/scripts/services-start
         cru d RunTAILMONcheck
         echo 'cru a RunTAILMONcheck "'"$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"'"' >> /jffs/scripts/services-start
-        cru a RunTAILMONcheck "$schedulemin $schedulehrs * * * sh /jffs/scripts/vpnmon-r3.sh -reset"
+        cru a RunTAILMONcheck "$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -reset"
       fi
     else
       echo 'cru a RunTAILMONcheck "'"$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"'"' >> /jffs/scripts/services-start
@@ -2076,7 +2076,7 @@ _SendEMailNotification_()
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
-# sendmessage is a function that sends an AMTM email based on activity within VPNMON-R3
+# sendmessage is a function that sends an AMTM email based on activity within TAILMON
 # $1 = Success/Failure 0/1
 # $2 = Component
 # $3 = VPN Slot
