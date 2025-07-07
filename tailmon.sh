@@ -769,7 +769,7 @@ clear
     then
     printf "\33[2K\r"
     printf "${CGreen}\r[Unable to Determine Official TAILMON Version...Exiting]\n"
-    echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to check for official TAILMON version - please check your internet connection." >> $logfile
+  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to determine official TAILMON version -- please check your internet connection. Autoupdate exiting." >> $logfile
     echo -e "${CClear}"
     sendmessage 1 "Unable to reach TAILMON repository"
     sleep 1
@@ -790,24 +790,27 @@ clear
       printf "\33[2K\r"
       printf "${CGreen}\r[Downloading New TAILMON v$serverver]\n"
       echo -e "${CClear}"
-      sleep 2
+      sleep 1
       curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
       officialver=$?
       if [ $officialver -ne 0 ]
         then
           printf "\33[2K\r"
           printf "${CGreen}\r[Unable to Download Official TAILMON Version...Exiting]\n"
-          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to download official TAILMON version - please check your internet connection." >> $logfile
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to download official TAILMON version -- please check your internet connection. Autoupdate exiting." >> $logfile
           echo -e "${CClear}"
           sendmessage 1 "Unable to reach TAILMON repository"
           sleep 1
           rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
           exit 1
       fi
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Successfully autoupdated TAILMON from v$localver to v$serverver" >> $logfile
+      sendmessage 0 "TAILMON Script Successfully Updated" $localver $serverver
       echo > /jffs/addons/tailmon.d/updated.txt
     else
     printf "\33[2K\r"
-    printf "${CGreen}\r[Local TAILMON Version is the Latest Available]"
+    printf "${CGreen}\r[Local TAILMON Version is the Latest Available]\n"
+    echo -e "${CClear}"
     sleep 1
   fi
   sleep 1
@@ -823,7 +826,7 @@ clear
     then
       printf "\33[2K\r"
       printf "${CGreen}\r[Unable to Determine Local Tailscale Version...Exiting]\n"
-      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to determine local Tailscale version - please check your installation." >> $logfile
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to determine local Tailscale version -- please check your installation. Autoupdate exiting." >> $logfile
       echo -e "${CClear}"
       sleep 2
       rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
@@ -842,7 +845,7 @@ clear
     then
       printf "\33[2K\r"
       printf "${CGreen}\r[Unable to Determine Official Tailscale Version...Exiting]\n"
-      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to determine Official Tailscale version - please check your installation/internet connection." >> $logfile
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to determine Official Tailscale version -- please check your installation/internet connection. Autoupdate exiting." >> $logfile
       echo -e "${CClear}"
       sendmessage 1 "Unable to reach Tailscale repository"
       sleep 1
@@ -877,7 +880,8 @@ clear
           rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
           exit 1
       fi
-      sendmessage 0 "Tailscale Successfully Updated"
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Successfully autoupdated Tailscale from v$localtsver to v$servertsver" >> $logfile
+      sendmessage 0 "Tailscale Successfully Updated" $localtsver $servertsver
 
       # Upon a successful update, restart Tailscale services
       echo ""
@@ -911,6 +915,7 @@ clear
       printf "\33[2K\r"
       printf "${CGreen}\r[Autoupdate Completed Successfully]\n"
       echo -e "${CClear}"
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Autoupdate completed successfully." >> $logfile
       sleep 1
       rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
       exit 0
@@ -923,6 +928,7 @@ clear
     printf "\33[2K\r"
     printf "${CGreen}\r[Autoupdate Completed Successfully]\n"
     echo -e "${CClear}"
+    echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Autoupdate completed successfully." >> $logfile
     sleep 1
     rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
     exit 0
@@ -2081,7 +2087,7 @@ _SendEMailNotification_()
 # $2 = Component
 # $3 = VPN Slot
 
-sendmessage ()
+sendmessage()
 {
 
 #If AMTM email functionality is disabled, return back to the function call
@@ -2210,7 +2216,7 @@ fi
       } > "$tmpEMailBodyFile"
     elif [ "$2" == "Tailscale Successfully Updated" ]; then
       emailSubject="SUCCESS: Tailscale was successfully updated via autoupdate"
-      emailBodyTitle="SUCCESS: Tailscale was successfully updated via autoupdate"
+      emailBodyTitle="SUCCESS: Tailscale was successfully updated via autoupdate from v$3 to v$4"
       {
       printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
       printf "\n"
@@ -2219,7 +2225,7 @@ fi
       } > "$tmpEMailBodyFile"
     elif [ "$2" == "TAILMON Script Successfully Updated" ]; then
       emailSubject="SUCCESS: TAILMON was successfully updated via autoupdate"
-      emailBodyTitle="SUCCESS: TAILMON was successfully updated via autoupdate"
+      emailBodyTitle="SUCCESS: TAILMON was successfully updated via autoupdate from v$3 to v$4"
       {
       printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
       printf "\n"
@@ -2440,8 +2446,8 @@ vsetup()
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 9)${CClear} : Check for latest updates${CClear}"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(10)${CClear} : Uninstall TAILMON${CClear}"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  | ${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( L)${CClear} : Launch TAILMON in Monitoring Mode${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( M)${CClear} : Launch TAILMON in Monitoring Mode using SCREEN${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( L)${CClear} : Launch TAILMON in Monitoring Mode (${CGreen}sh /jffs/scripts/tailmon.sh${CClear})"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( M)${CClear} : Launch TAILMON in Monitoring Mode using SCREEN (${CGreen}sh /jf..ts/tailmon.sh -screen${CClear})"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  | ${CClear}"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( e)${CClear} : Exit${CClear}"
     echo -e "${InvGreen} ${CClear}"
@@ -3234,10 +3240,9 @@ while true; do
   if [ -f /jffs/addons/tailmon.d/updated.txt ]
     then
       printf "\33[2K\r"
-      printf "${CGreen}\r[Updating TAILMON to Latest Version]"
-      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Updating TAILMON to latest version." >> $logfile
+      printf "${CGreen}\r[Replacing TAILMON with Latest Version]"
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Replacing TAILMON with latest version." >> $logfile
       sleep 1
-      sendmessage 0 "TAILMON Script Successfully Updated"
       rm -f /jffs/addons/tailmon.d/updated.txt >/dev/null 2>&1
       exec sh /jffs/scripts/tailmon.sh
       exit 0
