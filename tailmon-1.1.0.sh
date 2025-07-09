@@ -3198,6 +3198,7 @@ while true; do
     echo ""
     echo -e "${InvDkGray}${CWhite}Tailscale Connection Status:                                                                                   ${CClear}"
     tailscale status
+    tsstatus=$?
     echo ""
 
     if [ "$tsoperatingmode" == "Userspace" ]; then
@@ -3304,6 +3305,23 @@ while true; do
       echo ""
       sendmessage 1 "Tailscale Service Restarted"
     fi
+  fi
+  
+  #Determine if Tailscale status is producing an error
+  if [ $tsstatus -ne 0 ]; then
+    printf "\33[2K\r"
+    printf "${CGreen}\r[Tailscale Status producing errors...Restarting services]"
+    echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale Status producing errors. Restarting services." >> $logfile
+    sleep 1
+
+    tsdown
+    stopts
+    startts
+    tsup
+
+    resettimer=1
+    echo ""
+    sendmessage 1 "Tailscale Service Restarted"
   fi
 
   #Determine if router rebooted
