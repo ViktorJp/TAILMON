@@ -5,7 +5,8 @@ v1.1.0    - (TBA)
             binary updates, and attempt to install them accordingly. While autoupdates are running, the main
             TAILMON script may enter "Maintenance Mode" as to not interfere or overstep actions that the
             main script may take to keep Tailscale running. Appropriate on-screen, logging and email
-            messaging has been added to keep you in the loop when items are autoupdated.
+            messaging has been added to keep you in the loop when either the script or Tailscale binaries
+            are autoupdated.
 
 v1.0.20   - (July 27, 2024)
           - PATCH: Thanks to @Rung, he has contributed some changes to TAILMON that adds an "-email" switch
