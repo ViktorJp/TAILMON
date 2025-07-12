@@ -1,3 +1,13 @@
+v1.1.0    - (July 12, 2025)
+          - MINOR: Thanks to a great suggestion from @jksmurf, autoupdate functionality has been added to
+            TAILMON. Autoupdate can be scheduled via CRON job within the script under the Custom Configuration
+            Menu, item #7. When autoupdate runs, it will check for both TAILMON script updates as well as
+            Tailscale binary updates, and attempt to install them accordingly. While autoupdates are running,
+            the main TAILMON script may enter "Maintenance Mode" as to not interfere or overstep actions that
+            the main script may take to keep Tailscale running. Appropriate on-screen, logging and email
+            messaging has been added to keep you in the loop when either the script or Tailscale binaries
+            are autoupdated.
+
 v1.0.20   - (July 27, 2024)
           - PATCH: Thanks to @Rung, he has contributed some changes to TAILMON that adds an "-email" switch
             to the script. Per @Rung: Adds a new switch "-email" to be used by services-start script to warn
