@@ -12,8 +12,8 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.1.1"
-beta=1
+version="1.1.0"
+beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
 dlverpath="/jffs/addons/tailmon.d/version.txt"                       # Static path to the version file
