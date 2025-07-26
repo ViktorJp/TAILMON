@@ -1,3 +1,11 @@
+v1.1.1    - (July 26, 2025)
+          - PATCH: Modified a section of code that checks to see if the Tailscale service is dead, and tries
+            to restart the service. @JGrana found that in a case of a network outage, that TAILMON will flood
+            you with messages indicating that it tried restarting the service, only to have it loop until 
+            network connectivity is restored. This puts a rate limiter on to only attempt this every 60
+            seconds. It will also execute a fresh version of the script each time to eliminate any factors
+            around that.
+
 v1.1.0    - (July 12, 2025)
           - MINOR: Thanks to a great suggestion from @jksmurf, autoupdate functionality has been added to
             TAILMON. Autoupdate can be scheduled via CRON job within the script under the Custom Configuration
