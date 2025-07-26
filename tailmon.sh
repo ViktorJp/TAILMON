@@ -7,12 +7,13 @@
 # monitor application that will sit in the background (using the -screen utility), and will restart the Tailscale service
 # should it happen to go down. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi, and @kuki68ster for all their help, input
 # and testing of this script!
+# Last Updated: 26-Jul-2025
 
 #Preferred standard router binaries path
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.1.0"
+version="1.1.1"
 beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
@@ -3298,15 +3299,23 @@ while true; do
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale Service appears dead." >> $logfile
       sleep 1
 
+      tsdown
+      stopts
       startts
       tsup
 
       resettimer=1
       echo ""
       sendmessage 1 "Tailscale Service Restarted"
+
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Allowing Recovery Time]"
+      spinner 60
+      exec sh /jffs/scripts/tailmon.sh -noswitch
+
     fi
   fi
-  
+
   #Determine if Tailscale status is producing an error
   if [ $tsstatus -ne 0 ]; then
     printf "\33[2K\r"
