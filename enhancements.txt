@@ -1,6 +1,7 @@
 TO-DO
 -----
 * Do more error/status checking on the install of tailscale entware packages, and during the startup of the service/connection... and if it errors out, present better messaging around that, and potentially stopping the script in order to do more troubleshooting.
+* Provide for a way to downgrade to a different Tailscale version using ColinTaylors method.
 
 DONE
 ----
