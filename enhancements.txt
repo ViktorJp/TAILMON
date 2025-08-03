@@ -1,11 +1,11 @@
 TO-DO
 -----
 * Do more error/status checking on the install of tailscale entware packages, and during the startup of the service/connection... and if it errors out, present better messaging around that, and potentially stopping the script in order to do more troubleshooting.
-* Provide for a way to downgrade to a different Tailscale version using ColinTaylors method.
-* Enable ability to download beta versions of Tailscale
 
 DONE
 ----
+* Provide for a way to downgrade to a different Tailscale version using ColinTaylors method.
+* Enable ability to download beta versions of Tailscale
 * Add script auto update and TailScale auto update (when a new version presents itself) (@jksmurf)
 * Wording change per @jksmurf: Configure Router as Exit Node: A Tailscale Exit Node is a feature that lets you route all internet traffic, including internet traffic from non-Tailscale devices, through a specific device on your Tailscale network (known as a tailnet). The device routing your traffic (this router) is called an 'exit node'. Please indicate below if you want to enable this feature
 * BUG: issuing R for restart the custom setting get reset to original without -accept-routes (custom settings)
