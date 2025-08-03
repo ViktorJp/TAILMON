@@ -1,7 +1,27 @@
+v1.2.02b  - (TBA)
+          - MINOR: Added the ability to DOWNGRADE your Tailscale version to a previous version (even a Beta
+            if you so wish). This certainly is needed functionality, as the Tailscale installer does not have
+            this capability built-in. This procedure was formalized, based on the step-by-step guidance from
+            @Colin Taylor, @rung and @Stephen Harrington. 
+          - MINOR: Implemented an email rate limiter as recently introduced in VPNMON-R3. @JGrana found that
+            in a case of a network outage, that TAILMON will flood you with messages indicating that it tried
+            restarting the service, only to have it loop until network connectivity is restored. This function
+            creates a more formal rate limit on your emails, configured under the Configuration Menu #4, AMTM
+            Email Notifications, and lets you specify how many emails you can receive per hour. An indicator
+            is visible on the top right hand side of the screen, indicating "RL" (in red) as Rate Limiting
+            being disabled, while "RL:10/h" (in green) showing Rate Limiting enabled, with 10 emails/hr set
+            as the rate limit.
+          - PATCH: Added functionality under the Main Setup & Configuration Menu that allows you to upgrade
+            to the latest Tailscale (B)ETA version. Use at your own risk. You can thank @swejuggalo for this
+            addition! :)
+          - PATCH: Decided to remove the email notifications for when Operating Modes switch from userspace,
+            to kernel, to custom. Each time the service resets, it applies the settings for these modes, and
+            would shoot off an annoying email about this. 
+
 v1.1.1    - (July 26, 2025)
           - PATCH: Modified a section of code that checks to see if the Tailscale service is dead, and tries
             to restart the service. @JGrana found that in a case of a network outage, that TAILMON will flood
-            you with messages indicating that it tried restarting the service, only to have it loop until 
+            you with messages indicating that it tried restarting the service, only to have it loop until
             network connectivity is restored. This puts a rate limiter on to only attempt this every 60
             seconds. It will also execute a fresh version of the script each time to eliminate any factors
             around that.
