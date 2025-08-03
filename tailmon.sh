@@ -1062,7 +1062,7 @@ clear
 check_url()
 {
     # Using curl to check for a valid version archive
-    curl -s --head --fail "$1" > /dev/null
+    curl -s --head --fail "$1" >/dev/null 2>&1
 }
 
 tsdowngrade()
@@ -1081,15 +1081,15 @@ tsdowngrade()
     read -r TS_VERSION
 
     if [ -z "$TS_VERSION" ]; then
-        echo ""
-        echo -e "${CRed}No version entered. Please try again.${CClear}"
-        echo ""
-        continue
+      echo ""
+      echo -e "${CRed}No version entered. Please try again.${CClear}"
+      echo ""
+      continue
     elif [ "$TS_VERSION" = "e" ]; then
-        echo ""
-        echo -e "${CClear}[Exiting]"
-        sleep 1
-        return
+      echo ""
+      echo -e "${CClear}[Exiting]"
+      sleep 1
+      return
     fi
 
     echo ""
@@ -1103,18 +1103,18 @@ tsdowngrade()
     # Determine system architecture to build the correct download URL.
     ARCH=$(uname -m)
     case $ARCH in
-        "aarch64" | "arm64")
-          TS_ARCH="arm64"
-          ;;
-        "armv7l")
-          TS_ARCH="arm"
-          ;;
-        *)
-          echo ""; echo ""
-          echo -e "${CRed}Not sure how you did it, but you're running an unsupported architecture: $ARCH ${CClear}"
-          sleep 2
-          exit 1
-          ;;
+      "aarch64" | "arm64")
+        TS_ARCH="arm64"
+        ;;
+      "armv7l")
+        TS_ARCH="arm"
+        ;;
+      *)
+        echo ""; echo ""
+        echo -e "${CRed}Not sure how you did it, but you're running an unsupported architecture: $ARCH ${CClear}"
+        sleep 2
+        exit 1
+        ;;
     esac
 
     # Construct the download URL.
@@ -1129,12 +1129,12 @@ tsdowngrade()
     echo -e "${CGreen}Verifying version:${CClear} $TS_VERSION ${CGreen}for architecture:${CClear} $TS_ARCH"
     echo ""
     if ! check_url "$DOWNLOAD_URL"; then
-        echo -e "------------------------------------------------------------------"
-        echo -e "${CRed}Error: Invalid version or version not found for your architecture.${CClear}"
-        echo -e "URL checked: $DOWNLOAD_URL"
-        echo -e "Please check the version number and try again."
-        echo -e "------------------------------------------------------------------"
-        continue # Go back to the start of the loop
+      echo -e "------------------------------------------------------------------"
+      echo -e "${CRed}Error: Invalid version or version not found for your architecture.${CClear}"
+      echo -e "URL checked: $DOWNLOAD_URL"
+      echo -e "Please check the version number and try again."
+      echo -e "------------------------------------------------------------------"
+      continue # Go back to the start of the loop
     fi
 
     echo -e "${CGreen}Version is valid. Proceeding with download...${CClear}"
@@ -1150,9 +1150,9 @@ tsdowngrade()
     echo -e "${CGreen}Downloading from:${CClear} $DOWNLOAD_URL"
     echo ""
     if ! curl -L -o "$DOWNLOAD_PATH" "$DOWNLOAD_URL"; then
-        echo ""
-        echo -e "${CRed}Error: Download failed. Please check your internet connection.${CClear}"
-        continue
+      echo ""
+      echo -e "${CRed}Error: Download failed. Please check your internet connection.${CClear}"
+      continue
     fi
 
     echo ""
@@ -1165,9 +1165,9 @@ tsdowngrade()
 
     # Extract the whole archive and then find our files.
     if ! tar -xzf "$DOWNLOAD_PATH" -C "$TMP_DIR"; then
-        echo -e "${CRed}Error: Extraction failed.${CClear}"
-        rm -f "$DOWNLOAD_PATH" # Clean up failed download
-        continue
+      echo -e "${CRed}Error: Extraction failed.${CClear}"
+      rm -f "$DOWNLOAD_PATH" # Clean up failed download
+      continue
     fi
 
     # The extracted files should be inside a directory like /tmp/tailscale_1.84.0
@@ -1176,11 +1176,11 @@ tsdowngrade()
 
     # Verify that the binaries were extracted
     if [ ! -f "$SOURCE_TAILSCALE" ] || [ ! -f "$SOURCE_TAILSCALED" ]; then
-        echo -e "${CRed}Error: The required binaries 'tailscale' and 'tailscaled' were not found in the archive.${CClear}"
-        # Clean up
-        rm -f "$DOWNLOAD_PATH"
-        rm -rf "$EXTRACT_DIR"
-        continue
+      echo -e "${CRed}Error: The required binaries 'tailscale' or 'tailscaled' were not found in the archive.${CClear}"
+      # Clean up
+      rm -f "$DOWNLOAD_PATH"
+      rm -rf "$EXTRACT_DIR"
+      continue
     fi
 
     echo -e "${CGreen}Extraction successful.${CClear}"
@@ -1188,39 +1188,39 @@ tsdowngrade()
 
     # Check if the destination directory exists.
     if [ ! -d "$DEST_DIR" ]; then
-        echo -e "{$CRed}Destination directory${CClear} $DEST_DIR {$CRed}does not exist. Please install Entware...${CClear}"
-        exit 1
+      echo -e "{$CRed}Destination directory${CClear} $DEST_DIR {$CRed}does not exist. Please install Entware...${CClear}"
+      exit 1
     fi
 
     # Stop any running Tailscale serices
-    echo -e "${CGreen}Stopping Existing Tailscale Service and Connection...${CClear}"
+    echo -e "${CGreen}Stopping current Tailscale Service and Connection...${CClear}"
     echo ""
 
     tsdown
     stopts
 
     # Delete the existing files if they exist.
-    echo -e "${CGreen}Removing old Tailscale versions from${CClear} $DEST_DIR..."
+    echo -e "${CGreen}Removing current Tailscale versions from${CClear} $DEST_DIR..."
     echo ""
     rm -f "$DEST_DIR/tailscale"
     rm -f "$DEST_DIR/tailscaled"
 
     # Move the two extracted files to /opt/bin.
-    echo -e "${CGreen}Moving downgraded Tailscale binaries to${CClear} $DEST_DIR..."
+    echo -e "${CGreen}Moving downloaded Tailscale binaries to${CClear} $DEST_DIR..."
     echo ""
     if ! mv "$SOURCE_TAILSCALE" "$DEST_DIR/"; then
-        echo -e "${CRed}Error moving tailscale binary.${CClear}"
-        # Clean up
-        rm -f "$DOWNLOAD_PATH"
-        rm -rf "$EXTRACT_DIR"
-        continue
+      echo -e "${CRed}Error moving tailscale binary.${CClear}"
+      # Clean up
+      rm -f "$DOWNLOAD_PATH"
+      rm -rf "$EXTRACT_DIR"
+      continue
     fi
     if ! mv "$SOURCE_TAILSCALED" "$DEST_DIR/"; then
-        echo -e "${CRed}Error moving tailscaled binary.${CClear}"
-        # Clean up
-        rm -f "$DOWNLOAD_PATH"
-        rm -rf "$EXTRACT_DIR"
-        continue
+      echo -e "${CRed}Error moving tailscaled binary.${CClear}"
+      # Clean up
+      rm -f "$DOWNLOAD_PATH"
+      rm -rf "$EXTRACT_DIR"
+      continue
     fi
 
     # Make them both executable.
@@ -1229,7 +1229,7 @@ tsdowngrade()
     chmod 755 "$DEST_DIR/tailscale"
     chmod 755 "$DEST_DIR/tailscaled"
 
-    echo -e "${CGreen}Tailscale has been successfully downgraded to${CClear} $TS_VERSION ${CGreen}and installed to${CClear} $DEST_DIR."
+    echo -e "${CGreen}Tailscale has been successfully updated to${CClear} $TS_VERSION ${CGreen}and installed to${CClear} $DEST_DIR."
     echo ""
 
     # Clean up the downloaded archive and extracted folder
@@ -1249,7 +1249,7 @@ tsdowngrade()
     restarttsc
   fi
 
-  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale binary successfully downgraded to $TS_VERSION" >> $logfile
+  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale binaries successfully updated to $TS_VERSION" >> $logfile
   resettimer=1
 }
 
@@ -1268,7 +1268,11 @@ do
   echo -e "${InvGreen} ${InvDkGray}${CWhite} TAILMON Autoupdate Scheduler                                                          ${CClear}"
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} Please indicate below if you would like to enable and schedule a daily autoupdate CRON"
-  echo -e "${InvGreen} ${CClear} job. This will check for both TAILMON and Tailscale updates. (Default = Disabled)"
+  echo -e "${InvGreen} ${CClear} job. This will check for both TAILMON and Tailscale updates. Please NOTE: Autoupdate"
+  echo -e "${InvGreen} ${CClear} will only update to the latest stable release. Beta updates need to handled manually"
+  echo -e "${InvGreen} ${CClear} using the option in the Main Setup & Configuration menu."
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} (Autoupdate Default = Disabled)"
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo -e "${InvGreen} ${CClear}"
   if [ "$schedule" = "0" ]
