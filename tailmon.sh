@@ -7,18 +7,19 @@
 # monitor application that will sit in the background (using the -screen utility), and will restart the Tailscale service
 # should it happen to go down. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi, and @kuki68ster for all their help, input
 # and testing of this script!
-# Last Updated: 26-Jul-2025
+# Last Updated: 2025-Aug-2
 
 #Preferred standard router binaries path
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.1.1"
-beta=0
+version="1.2.02b"
+beta=1
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
 dlverpath="/jffs/addons/tailmon.d/version.txt"                       # Static path to the version file
 logfile="/jffs/addons/tailmon.d/tailmon.log"                         # Static path to the log
+tmemails="/jffs/addons/tailmon.d/tmemails.txt"                       # Static path to email rate limit file
 routerboot=0
 tsinstalled=0
 keepalive=0
@@ -30,6 +31,7 @@ schedulehrs=1                                                        # Scheduler
 schedulemin=0                                                        # Scheduler mins
 amtmemailsuccess=0
 amtmemailfailure=0
+ratelimit=0                                                          # Rate limiting number of emails/houre
 exitnode=0
 advroutes=1
 accroutes=0
@@ -230,6 +232,46 @@ progressbaroverride()
           [Tt]) stopts;;
           [Uu]) tsup;;
           *) timer=$timerloop;;
+      esac
+  fi
+}
+
+progressbarpause()
+{
+  insertspc=" "
+  bypasswancheck=0
+
+  if [ "$1" -eq -1 ]
+  then
+     printf "\r  $barspaces\r"
+  else
+    if [ $# -gt 6 ] && [ -n "$7" ] && [ "$1" -ge "$7" ]
+    then
+       barch="$(($7*barlen/$2))"
+       barsp="$((barlen-barch))"
+       progr="$((100*$1/$2))"
+    else
+       barch="$(($1*barlen/$2))"
+       barsp="$((barlen-barch))"
+       progr="$((100*$1/$2))"
+    fi
+
+    if [ $# -gt 5 ] && [ -n "$6" ]; then AltNum="$6" ; else AltNum="$1" ; fi
+
+    if [ "$5" = "Standard" ]
+    then
+       printf "  ${CWhite}${InvDkGray}Continuing in $AltNum/5...${CClear} [${CGreen}s${CClear}=Setup] [${CGreen}e${CClear}=Exit] [Selection? ${InvGreen} ${CClear}${CGreen}]\r${CClear}" "$barchars" "$barspaces"
+    fi
+  fi
+
+  # Borrowed this wonderful keypress capturing mechanism from @Eibgrad... thank you! :)
+  key_press=''; read -rsn1 -t 1 key_press < "$(tty 0>&2)"
+
+  if [ $key_press ]
+  then
+      case $key_press in
+          [Ss]) vsetup;;
+          [Ee]) logoNMexit; echo -e "${CClear}\n"; exit 0;;
       esac
   fi
 }
@@ -535,6 +577,23 @@ startts()
       echo -e "${CGreen}Messages:"
       echo ""
       /opt/etc/init.d/S06tailscaled start
+      tsstat=$?
+      if [ "$tsstat" -ne 0 ];
+        then
+          echo ""
+          echo -e "${CRed}ERROR: Tailscale Service did not start correctly${CClear}"
+          echo ""
+          #Display a standard timer#
+          timer=0
+          while [ $timer -ne 5 ]
+          do
+            timer="$((timer+1))"
+            preparebar 46 "|"
+            progressbarpause $timer 5 "" "s" "Standard"
+          done
+          printf "\33[2K\r"
+      fi
+
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service started." >> $logfile
       echo ""
       resettimer=1
@@ -679,10 +738,40 @@ tsup()
         echo "Executing: tailscale up $customcmdline"
         echo ""
         tailscale up $customcmdline
+        tsstat=$?
+        if [ "$tsstat" -ne 0 ];
+          then
+            echo -e "${CRed}ERROR: Tailscale Connection did not start correctly${CClear}"
+            echo ""
+            #Display a standard timer#
+            timer=0
+            while [ $timer -ne 5 ]
+            do
+              timer="$((timer+1))"
+              preparebar 46 "|"
+              progressbarpause $timer 5 "" "s" "Standard"
+            done
+            printf "\33[2K\r"
+        fi
       else
         echo "Executing: tailscale up $exitnodecmd$advroutescmd$accroutescmd"
         echo ""
         tailscale up $exitnodecmd$advroutescmd$accroutescmd
+        tsstat=$?
+        if [ "$tsstat" -ne 0 ];
+          then
+            echo -e "${CRed}ERROR: Tailscale Connection did not start correctly${CClear}"
+            echo ""
+            #Display a standard timer#
+            timer=0
+            while [ $timer -ne 5 ]
+            do
+              timer="$((timer+1))"
+              preparebar 46 "|"
+              progressbarpause $timer 5 "" "s" "Standard"
+            done
+            printf "\33[2K\r"
+        fi
       fi
 
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection started." >> $logfile
@@ -728,10 +817,40 @@ tsupdate()
       echo -e "Restart Tailscale?"
       if promptyn "[y/n]: "
         then
+        echo ""; echo ""
         restarttsc
       fi
 
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale binary updated to latest available version." >> $logfile
+      resettimer=1
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# Force Tailscale Binary update to latest BETA
+
+tsbeta()
+{
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Updating Tailscale Binary to Latest BETA]"
+      sleep 1
+      printf "\33[2K\r"
+
+      echo -e "${CGreen}Messages:${CClear}"
+      echo ""
+
+      echo "Executing: tailscale update --track unstable"
+      echo ""
+      tailscale update --track unstable
+
+      echo ""
+      echo -e "Restart Tailscale?"
+      if promptyn "[y/n]: "
+        then
+        echo ""; echo ""
+        restarttsc
+      fi
+
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale binary updated to latest BETA version." >> $logfile
       resettimer=1
 }
 
@@ -935,6 +1054,203 @@ clear
     exit 0
   fi
 
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# Force Downgrade Tailscale Binary update
+
+check_url()
+{
+    # Using curl to check for a valid version archive
+    curl -s --head --fail "$1" > /dev/null
+}
+
+tsdowngrade()
+{
+
+  printf "\33[2K\r"
+  printf "${CGreen}\r[Downgrading Tailscale Binary]"
+  sleep 1
+  echo ""; echo ""
+  echo -e "${CGreen}Messages:${CClear}"
+
+  while true; do
+    # Prompt the user for the Tailscale version.
+    echo ""
+    printf "Please enter the Tailscale version to downgrade to (ex: 1.84.0, e=Exit): "
+    read -r TS_VERSION
+
+    if [ -z "$TS_VERSION" ]; then
+        echo ""
+        echo -e "${CRed}No version entered. Please try again.${CClear}"
+        echo ""
+        continue
+    elif [ "$TS_VERSION" = "e" ]; then
+        echo ""
+        echo -e "${CClear}[Exiting]"
+        sleep 1
+        return
+    fi
+
+    echo ""
+    echo -e "${CClear}Are you downgrading to a Tailscale Beta Version? (y=Beta, n=Stable)?"
+    TS_BETA=0
+    if promptyn "[y/n]: "
+      then
+      TS_BETA=1
+    fi
+
+    # Determine system architecture to build the correct download URL.
+    ARCH=$(uname -m)
+    case $ARCH in
+        "aarch64" | "arm64")
+          TS_ARCH="arm64"
+          ;;
+        "armv7l")
+          TS_ARCH="arm"
+          ;;
+        *)
+          echo ""; echo ""
+          echo -e "${CRed}Not sure how you did it, but you're running an unsupported architecture: $ARCH ${CClear}"
+          sleep 2
+          exit 1
+          ;;
+    esac
+
+    # Construct the download URL.
+    if [ "$TS_BETA" -eq 1 ]; then
+       DOWNLOAD_URL="https://pkgs.tailscale.com/unstable/tailscale_${TS_VERSION}_${TS_ARCH}.tgz"
+    else
+       DOWNLOAD_URL="https://pkgs.tailscale.com/stable/tailscale_${TS_VERSION}_${TS_ARCH}.tgz"
+    fi
+
+    # Validate the version by checking if the URL is reachable.
+    echo ""; echo ""
+    echo -e "${CGreen}Verifying version:${CClear} $TS_VERSION ${CGreen}for architecture:${CClear} $TS_ARCH"
+    echo ""
+    if ! check_url "$DOWNLOAD_URL"; then
+        echo -e "------------------------------------------------------------------"
+        echo -e "${CRed}Error: Invalid version or version not found for your architecture.${CClear}"
+        echo -e "URL checked: $DOWNLOAD_URL"
+        echo -e "Please check the version number and try again."
+        echo -e "------------------------------------------------------------------"
+        continue # Go back to the start of the loop
+    fi
+
+    echo -e "${CGreen}Version is valid. Proceeding with download...${CClear}"
+    echo ""
+
+    # Define file paths
+    TMP_DIR="/tmp"
+    DOWNLOAD_PATH="$TMP_DIR/tailscale_${TS_VERSION}_${TS_ARCH}.tgz"
+    EXTRACT_DIR="$TMP_DIR/tailscale_${TS_VERSION}_${TS_ARCH}"
+    DEST_DIR="/opt/bin"
+
+    # Download the package to the /tmp folder.
+    echo -e "${CGreen}Downloading from:${CClear} $DOWNLOAD_URL"
+    echo ""
+    if ! curl -L -o "$DOWNLOAD_PATH" "$DOWNLOAD_URL"; then
+        echo ""
+        echo -e "${CRed}Error: Download failed. Please check your internet connection.${CClear}"
+        continue
+    fi
+
+    echo ""
+    echo -e "${CGreen}Download complete.${CClear}"
+    echo ""
+
+    # Extract the 'tailscale' and 'tailscaled' binaries.
+    echo -e "${CGreen}Extracting Tailscale binaries to:${CClear} $TMP_DIR"
+    echo ""
+
+    # Extract the whole archive and then find our files.
+    if ! tar -xzf "$DOWNLOAD_PATH" -C "$TMP_DIR"; then
+        echo -e "${CRed}Error: Extraction failed.${CClear}"
+        rm -f "$DOWNLOAD_PATH" # Clean up failed download
+        continue
+    fi
+
+    # The extracted files should be inside a directory like /tmp/tailscale_1.84.0
+    SOURCE_TAILSCALE="$EXTRACT_DIR/tailscale"
+    SOURCE_TAILSCALED="$EXTRACT_DIR/tailscaled"
+
+    # Verify that the binaries were extracted
+    if [ ! -f "$SOURCE_TAILSCALE" ] || [ ! -f "$SOURCE_TAILSCALED" ]; then
+        echo -e "${CRed}Error: The required binaries 'tailscale' and 'tailscaled' were not found in the archive.${CClear}"
+        # Clean up
+        rm -f "$DOWNLOAD_PATH"
+        rm -rf "$EXTRACT_DIR"
+        continue
+    fi
+
+    echo -e "${CGreen}Extraction successful.${CClear}"
+    echo ""
+
+    # Check if the destination directory exists.
+    if [ ! -d "$DEST_DIR" ]; then
+        echo -e "{$CRed}Destination directory${CClear} $DEST_DIR {$CRed}does not exist. Please install Entware...${CClear}"
+        exit 1
+    fi
+
+    # Stop any running Tailscale serices
+    echo -e "${CGreen}Stopping Existing Tailscale Service and Connection...${CClear}"
+    echo ""
+
+    tsdown
+    stopts
+
+    # Delete the existing files if they exist.
+    echo -e "${CGreen}Removing old Tailscale versions from${CClear} $DEST_DIR..."
+    echo ""
+    rm -f "$DEST_DIR/tailscale"
+    rm -f "$DEST_DIR/tailscaled"
+
+    # Move the two extracted files to /opt/bin.
+    echo -e "${CGreen}Moving downgraded Tailscale binaries to${CClear} $DEST_DIR..."
+    echo ""
+    if ! mv "$SOURCE_TAILSCALE" "$DEST_DIR/"; then
+        echo -e "${CRed}Error moving tailscale binary.${CClear}"
+        # Clean up
+        rm -f "$DOWNLOAD_PATH"
+        rm -rf "$EXTRACT_DIR"
+        continue
+    fi
+    if ! mv "$SOURCE_TAILSCALED" "$DEST_DIR/"; then
+        echo -e "${CRed}Error moving tailscaled binary.${CClear}"
+        # Clean up
+        rm -f "$DOWNLOAD_PATH"
+        rm -rf "$EXTRACT_DIR"
+        continue
+    fi
+
+    # Make them both executable.
+    echo -e "${CGreen}Setting Tailscale permissions...${CClear}"
+    echo ""
+    chmod 755 "$DEST_DIR/tailscale"
+    chmod 755 "$DEST_DIR/tailscaled"
+
+    echo -e "${CGreen}Tailscale has been successfully downgraded to${CClear} $TS_VERSION ${CGreen}and installed to${CClear} $DEST_DIR."
+    echo ""
+
+    # Clean up the downloaded archive and extracted folder
+    echo -e "${CGreen}Cleaning up temporary files...${CClear}"
+    echo ""
+    rm -f "$DOWNLOAD_PATH"
+    rm -rf "$EXTRACT_DIR"
+
+    # Exit the loop on success
+    break
+  done
+
+  echo -e "${CClear}Restart Tailscale using downgraded version $TS_VERSION?"
+  if promptyn "[y/n]: "
+    then
+    echo ""; echo ""
+    restarttsc
+  fi
+
+  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale binary successfully downgraded to $TS_VERSION" >> $logfile
+  resettimer=1
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -1575,7 +1891,6 @@ applyuserspacemode()
 
   fi
   echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Userspace Mode settings have been applied." >> $logfile
-  sendmessage 0 "Tailscale Operating Mode Userspace"
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -1609,7 +1924,6 @@ applykernelmode()
     chmod 0755 /jffs/scripts/firewall-start
   fi
   echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Kernel Mode settings have been applied." >> $logfile
-  sendmessage 0 "Tailscale Operating Mode Kernel"
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -1649,7 +1963,6 @@ applycustommode()
   saveconfig
 
   echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Custom Mode settings have been applied." >> $logfile
-  sendmessage 0 "Tailscale Operating Mode Custom"
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -1678,7 +1991,6 @@ applycustomchanges()
   restartts=1
 
   echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Custom Mode changes have been applied." >> $logfile
-  sendmessage 0 "Tailscale Operating Mode Custom"
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -1940,11 +2252,14 @@ while true; do
 
   if [ "$amtmemailsuccess" == "1" ]; then amtmemailsuccessdisp="${CGreen}Y${CCyan}"; else amtmemailsuccess=0; amtmemailsuccessdisp="${CRed}N${CCyan}"; fi
   if [ "$amtmemailfailure" == "1" ]; then amtmemailfailuredisp="${CGreen}Y${CCyan}"; else amtmemailfailure=0; amtmemailfailuredisp="${CRed}N${CCyan}"; fi
+  if [ "$ratelimit" = "0" ]; then ratelimitdisp="Disabled"; else ratelimitdisp=$ratelimit; fi
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}Tailscale Success Event Notifications${CClear} ${CGreen}(1) -${CClear} $amtmemailsuccessdisp${CClear}"
   echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}Tailscale Failure Event Notifications${CClear} ${CGreen}(2) -${CClear} $amtmemailfailuredisp${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}Tailscale Email Rate Limit (per hour)${CClear} ${CGreen}(r) - $ratelimitdisp${CClear}"
   echo ""
-  read -p "Please select? (1-2, e=Exit, t=Test Email): " SelectSlot
+  read -p "Please select? (1-2, r=Set Email Rate Limit, t=Test Email, e=Exit): " SelectSlot
     case $SelectSlot in
       1) if [ "$amtmemailsuccess" == "0" ]; then amtmemailsuccess=1; amtmemailsuccessdisp="${CGreen}Y${CCyan}"; elif [ "$amtmemailsuccess" == "1" ]; then amtmemailsuccess=0; amtmemailsuccessdisp="${CRed}N${CCyan}"; fi;;
       2) if [ "$amtmemailfailure" == "0" ]; then amtmemailfailure=1; amtmemailfailuredisp="${CGreen}Y${CCyan}"; elif [ "$amtmemailfailure" == "1" ]; then amtmemailfailure=0; amtmemailfailuredisp="${CRed}N${CCyan}"; fi;;
@@ -1977,6 +2292,27 @@ while true; do
          echo ""
          echo ""
          read -rsp $'Press any key to acknowledge...\n' -n1 key
+         ;;
+
+      [Rr])
+         echo ""
+         read -p "Please enter new Email Rate Limit (per hour)? (0=disabled, 1-9999, e=Exit): " newratelimit
+         if [ "$newratelimit" = "e" ]
+         then
+             echo -e "\n[Exiting]"; sleep 2
+         elif echo "$newratelimit" | grep -qE "^(0|[1-9][0-9]{0,3})$" && \
+             [ "$newratelimit" -ge 0 ] && [ "$newratelimit" -le 9999 ]
+         then
+             ratelimit="$newratelimit"
+             echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: New Email Rate Limit entered (per hour): $ratelimit" >> $logfile
+             saveconfig
+         else
+             previousValue="$ratelimit"
+             ratelimit="${ratelimit:=0}"
+             [ "$ratelimit" != "$previousValue" ] && \
+             echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: New Email Rate Limit entered (per hour): $ratelimit" >> $logfile
+             saveconfig
+         fi
          ;;
 
       [Ee])
@@ -2114,128 +2450,156 @@ fi
   cemIsVerboseMode=false
   tmpEMailBodyFile="/tmp/var/tmp/tmpEMailBody_${scriptFileNTag}.$$.TXT"
 
-  #Pick the scenario and send email
-  if [ "$1" == "1" ] && [ "$amtmemailfailure" == "1" ]; then
-    if [ "$2" == "Tailscale Service settings out-of-sync" ]; then
-      emailSubject="ALERT: Tailscale Service settings out-of-sync"
-      emailBodyTitle="ALERT: Tailscale Service settings out-of-sync"
-      {
-      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
-      printf "\n"
-      printf "<b>ALERT: TAILMON</b> is currently recovering from out-of-sync settings issues! TAILMON has detected\n"
-      printf "that the Tailscale service settings are not in sync with the TAILMON config. This could be due to a\n"
-      printf "Tailscale update. TAILMON has fixed the settings and restarted the Tailscale service/connection.\n"
-      printf "\n"
-      } > "$tmpEMailBodyFile"
-    elif [ "$2" == "Tailscale Service Restarted" ]; then
-      emailSubject="FAILURE: Tailscale Service Restarted"
-      emailBodyTitle="FAILURE: Tailscale Service Restarted"
-      {
-      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
-      printf "\n"
-      printf "<b>FAILURE: TAILMON</b> has detected that the Tailscale service was dead and not connected. TAILMON.\n"
-      printf "has reset the service, and reestablished a connection to your Tailnet. Please investigate if this\n"
-      printf "behavior continues to persist.\n"
-      printf "\n"
-      } > "$tmpEMailBodyFile"
-    elif [ "$2" == "Router has been restarted" ]; then
-      emailSubject="WARNING: Router Has Unexpectedly Restarted"
-      emailBodyTitle="WARNING: Router Has Unexpectedly Restarted"
-      {
-      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
-      printf "\n"
-      printf "<b>WARNING: TAILMON</b> has detected that the router may have rebooted or was restarted. TAILMON.\n"
-      printf "has reset the service, and reestablished a connection to your Tailnet. Please investigate if this\n"
-      printf "behavior continues to persist.\n"
-      printf "\n"
-      } > "$tmpEMailBodyFile"
-    # Rung: added request email functionality
-    elif [ "$2" == "Tailmon email requested" ]; then
-      emailSubject="WARNING: Router Has Unexpectedly Restarted"
-      emailBodyTitle="WARNING: Router Has Unexpectedly Restarted"
-      {
-      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
-      printf "\n"
-      printf "<b>WARNING: TAILMON</b> has been requested to send this email from the services-start script.\n"
-      printf "If no additional email is received, this means that TAILMON has failed to start for some reason.\n"
-      printf "Please investigate if this behavior continues to persist.\n"
-      printf "\n"
-      } > "$tmpEMailBodyFile"
-    elif [ "$2" == "Unable to reach TAILMON repository" ]; then
-      emailSubject="WARNING: Router unable to reach TAILMON Repository"
-      emailBodyTitle="WARNING: Router unable to reach TAILMON Repository"
-      {
-      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
-      printf "\n"
-      printf "<b>WARNING: TAILMON</b> is unable to reach the TAILMON repository on GitHub in order to perform\n"
-      printf "an autoupdate function. Please check your internet connectivity or any blocking tools in place.\n"
-      printf "Please investigate if this behavior continues to persist.\n"
-      printf "\n"
-      } > "$tmpEMailBodyFile"
-    elif [ "$2" == "Unable to reach Tailscale repository" ]; then
-      emailSubject="WARNING: Router unable to reach Tailscale Repository"
-      emailBodyTitle="WARNING: Router unable to reach Tailscale Repository"
-      {
-      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
-      printf "\n"
-      printf "<b>WARNING: TAILMON</b> is unable to reach the Tailscale repository in order to perform an\n"
-      printf "autoupdate. Please check your internet connectivity or any blocking tools in place.\n"
-      printf "Please investigate if this behavior continues to persist.\n"
-      printf "\n"
-      } > "$tmpEMailBodyFile"
-    fi
-    _SendEMailNotification_ "TAILMON v$version" "$emailSubject" "$tmpEMailBodyFile" "$emailBodyTitle"
-  fi
+  ratelimiter
+  emaillimit="$?"
+  if [ "$emaillimit" -eq 0 ]
+    then
 
-  if [ "$1" == "0" ] && [ "$amtmemailsuccess" == "1" ]; then
-    if [ "$2" == "Tailscale Operating Mode Userspace" ]; then
-      emailSubject="SUCCESS: Tailscale Operating Mode changed to Userspace Mode"
-      emailBodyTitle="SUCCESS: Tailscale Operating Mode changed to Userspace Mode"
-      {
-      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
-      printf "\n"
-      printf "<b>SUCCESS: TAILMON</b> has changed Tailscale Operating Mode to Userspace mode.\n"
-      printf "\n"
-      } > "$tmpEMailBodyFile"
-    elif [ "$2" == "Tailscale Operating Mode Kernel" ]; then
-      emailSubject="SUCCESS: Tailscale Operating Mode changed to Kernel Mode"
-      emailBodyTitle="SUCCESS: Tailscale Operating Mode changed to Kernel Mode"
-      {
-      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
-      printf "\n"
-      printf "<b>SUCCESS: TAILMON</b> has changed Tailscale Operating Mode to Kernel mode\n"
-      printf "\n"
-      } > "$tmpEMailBodyFile"
-    elif [ "$2" == "Tailscale Operating Mode Custom" ]; then
-      emailSubject="SUCCESS: Tailscale Operating Mode changed to Custom Mode"
-      emailBodyTitle="SUCCESS: Tailscale Operating Mode changed to Custom Mode"
-      {
-      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
-      printf "\n"
-      printf "<b>SUCCESS: TAILMON</b> has changed Tailscale Operating Mode to Custom mode\n"
-      printf "\n"
-      } > "$tmpEMailBodyFile"
-    elif [ "$2" == "Tailscale Successfully Updated" ]; then
-      emailSubject="SUCCESS: Tailscale was successfully updated via autoupdate"
-      emailBodyTitle="SUCCESS: Tailscale was successfully updated via autoupdate from v$3 to v$4"
-      {
-      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
-      printf "\n"
-      printf "<b>SUCCESS: TAILMON</b> has successfully autoupdated Tailscale to the latest version.\n"
-      printf "\n"
-      } > "$tmpEMailBodyFile"
-    elif [ "$2" == "TAILMON Script Successfully Updated" ]; then
-      emailSubject="SUCCESS: TAILMON was successfully updated via autoupdate"
-      emailBodyTitle="SUCCESS: TAILMON was successfully updated via autoupdate from v$3 to v$4"
-      {
-      printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
-      printf "\n"
-      printf "<b>SUCCESS: TAILMON</b> was successfully updated to the latest version via autoupdate.\n"
-      printf "\n"
-      } > "$tmpEMailBodyFile"
+    #Pick the scenario and send email
+    if [ "$1" == "1" ] && [ "$amtmemailfailure" == "1" ]; then
+      if [ "$2" == "Tailscale Service settings out-of-sync" ]; then
+        emailSubject="ALERT: Tailscale Service settings out-of-sync"
+        emailBodyTitle="ALERT: Tailscale Service settings out-of-sync"
+        {
+        printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+        printf "\n"
+        printf "<b>ALERT: TAILMON</b> is currently recovering from out-of-sync settings issues! TAILMON has detected\n"
+        printf "that the Tailscale service settings are not in sync with the TAILMON config. This could be due to a\n"
+        printf "Tailscale update. TAILMON has fixed the settings and restarted the Tailscale service/connection.\n"
+        printf "\n"
+        } > "$tmpEMailBodyFile"
+      elif [ "$2" == "Tailscale Service Restarted" ]; then
+        emailSubject="FAILURE: Tailscale Service Restarted"
+        emailBodyTitle="FAILURE: Tailscale Service Restarted"
+        {
+        printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+        printf "\n"
+        printf "<b>FAILURE: TAILMON</b> has detected that the Tailscale service was dead and not connected. TAILMON.\n"
+        printf "has reset the service, and reestablished a connection to your Tailnet. Please investigate if this\n"
+        printf "behavior continues to persist.\n"
+        printf "\n"
+        } > "$tmpEMailBodyFile"
+      elif [ "$2" == "Router has been restarted" ]; then
+        emailSubject="WARNING: Router Has Unexpectedly Restarted"
+        emailBodyTitle="WARNING: Router Has Unexpectedly Restarted"
+        {
+        printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+        printf "\n"
+        printf "<b>WARNING: TAILMON</b> has detected that the router may have rebooted or was restarted. TAILMON.\n"
+        printf "has reset the service, and reestablished a connection to your Tailnet. Please investigate if this\n"
+        printf "behavior continues to persist.\n"
+        printf "\n"
+        } > "$tmpEMailBodyFile"
+      # Rung: added request email functionality
+      elif [ "$2" == "Tailmon email requested" ]; then
+        emailSubject="WARNING: Router Has Unexpectedly Restarted"
+        emailBodyTitle="WARNING: Router Has Unexpectedly Restarted"
+        {
+        printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+        printf "\n"
+        printf "<b>WARNING: TAILMON</b> has been requested to send this email from the services-start script.\n"
+        printf "If no additional email is received, this means that TAILMON has failed to start for some reason.\n"
+        printf "Please investigate if this behavior continues to persist.\n"
+        printf "\n"
+        } > "$tmpEMailBodyFile"
+      elif [ "$2" == "Unable to reach TAILMON repository" ]; then
+        emailSubject="WARNING: Router unable to reach TAILMON Repository"
+        emailBodyTitle="WARNING: Router unable to reach TAILMON Repository"
+        {
+        printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+        printf "\n"
+        printf "<b>WARNING: TAILMON</b> is unable to reach the TAILMON repository on GitHub in order to perform\n"
+        printf "an autoupdate function. Please check your internet connectivity or any blocking tools in place.\n"
+        printf "Please investigate if this behavior continues to persist.\n"
+        printf "\n"
+        } > "$tmpEMailBodyFile"
+      elif [ "$2" == "Unable to reach Tailscale repository" ]; then
+        emailSubject="WARNING: Router unable to reach Tailscale Repository"
+        emailBodyTitle="WARNING: Router unable to reach Tailscale Repository"
+        {
+        printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+        printf "\n"
+        printf "<b>WARNING: TAILMON</b> is unable to reach the Tailscale repository in order to perform an\n"
+        printf "autoupdate. Please check your internet connectivity or any blocking tools in place.\n"
+        printf "Please investigate if this behavior continues to persist.\n"
+        printf "\n"
+        } > "$tmpEMailBodyFile"
+      fi
+      _SendEMailNotification_ "TAILMON v$version" "$emailSubject" "$tmpEMailBodyFile" "$emailBodyTitle"
     fi
-    _SendEMailNotification_ "TAILMON v$version" "$emailSubject" "$tmpEMailBodyFile" "$emailBodyTitle"
+
+    if [ "$1" == "0" ] && [ "$amtmemailsuccess" == "1" ]; then
+      if [ "$2" == "Tailscale Successfully Updated" ]; then
+        emailSubject="SUCCESS: Tailscale Binary was successfully updated via autoupdate"
+        emailBodyTitle="SUCCESS: Tailscale Binary was successfully updated via autoupdate from v$3 to v$4"
+        {
+        printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+        printf "\n"
+        printf "<b>SUCCESS: TAILMON</b> has successfully autoupdated the Tailscale Binary to the latest version.\n"
+        printf "\n"
+        } > "$tmpEMailBodyFile"
+      elif [ "$2" == "TAILMON Script Successfully Updated" ]; then
+        emailSubject="SUCCESS: TAILMON was successfully updated via autoupdate"
+        emailBodyTitle="SUCCESS: TAILMON was successfully updated via autoupdate from v$3 to v$4"
+        {
+        printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+        printf "\n"
+        printf "<b>SUCCESS: TAILMON</b> was successfully updated to the latest version via autoupdate.\n"
+        printf "\n"
+        } > "$tmpEMailBodyFile"
+      fi
+      _SendEMailNotification_ "TAILMON v$version" "$emailSubject" "$tmpEMailBodyFile" "$emailBodyTitle"
+    fi
+
   fi
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# Function to keep track of emails sent, and determine if they need to be rate-limited
+ratelimiter()
+{
+
+#if rate limiting is disabled, exit right away
+if [ "$ratelimit" = "0" ]; then
+  return 0
+fi
+
+#Make sure log file exists
+touch "$tmemails"
+
+#check current time and 1h into the past
+current_time=$(date +%s)
+cutoff_time=$((current_time - 3600))
+
+#create a temp file where current data will get moved over into that is less than 1hr old
+tmemailstemp="${tmemails}.tmp"
+awk -v cutoff="$cutoff_time" '$1 > cutoff' "$tmemails" > "$tmemailstemp"
+
+#check to see how many emails have been sent in the last hour
+recent_email_count=$(wc -l < "$tmemailstemp" | tr -d ' ')
+
+printf "\33[2K\r"
+printf "${CGreen}\r[Checking email rate limit... $recent_email_count/$ratelimit emails sent within the last hour]"
+sleep 2
+
+#logic to determine if rate limit has been hit
+if [ "$recent_email_count" -ge "$ratelimit" ]
+  then
+    printf "\33[2K\r"
+    printf "${CGreen}\r[Rate limit exceeded. Emails will be prevented from sending]"
+    echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Email Rate limit exceeded ($ratelimit). Emails will be prevented from sending." >> $logfile
+    sleep 2
+    mv "$tmemailstemp" "$tmemails"
+    return 1
+  else
+    printf "\33[2K\r"
+    printf "${CGreen}\r[Rate within limits. Proceeding to send email]"
+    sleep 1
+    echo "$current_time" >> "$tmemailstemp"
+    mv "$tmemailstemp" "$tmemails"
+    return 0
+fi
+
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -2421,10 +2785,12 @@ vsetup()
     printf "\33[2K\r"
 
     if [ "$tsinstalleddisp" == "Installed" ]; then
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  |-${CClear}-- ${InvGreen}${CWhite}(R)${CClear}e-${InvGreen}${CWhite}(S)${CClear}tart / S${InvGreen}${CWhite}(T)${CClear}op Tailscale Service${CClear}      |--- ${CGreen}$tsservicedisp${CClear}"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  |-${CClear}-- ${InvGreen}${CWhite}(U)${CClear}p / ${InvGreen}${CWhite}(D)${CClear}own Tailscale Connection${CClear}           |--- ${CGreen}$tsconndisp${CClear}"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  |-${CClear}-- U${InvGreen}${CWhite}(P)${CClear}date Tailscale Binary to latest version  |--- ${CGreen}v$tsver${CClear}"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  |-${CClear}-- ${InvGreen}${CWhite}(I)${CClear}ssue Connection '--reset' Command${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  |-${CClear}-- ${CGreen}(R)${CClear}e-${CGreen}(S)${CClear}tart / S${CGreen}(T)${CClear}op Tailscale Service${CClear}      |--- ${CGreen}$tsservicedisp${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  |-${CClear}-- ${CGreen}(U)${CClear}p / ${CGreen}(D)${CClear}own Tailscale Connection${CClear}           |--- ${CGreen}$tsconndisp${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  |-${CClear}-- U${CGreen}(P)${CClear}date Tailscale Binary to latest version  |--- ${CGreen}v$tsver${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  |-${CClear}-- Update Tailscale Binary to latest ${CGreen}(B)${CRed}ETA${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  |-${CClear}-- ${CGreen}(F)${CClear}orce Downgrade to Older Tailscale version${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  |-${CClear}-- ${CGreen}(I)${CClear}ssue Connection '--reset' Command${CClear}"
     fi
 
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 2)${CClear} : Uninstall Tailscale Entware Package(s)${CClear}"
@@ -2456,9 +2822,9 @@ vsetup()
     echo ""
     if [ "$tsinstalleddisp" == "Installed" ]; then
       if [ "$tsoperatingmode" == "Custom" ]; then
-        read -p "Please select? (1-10, R/S/T/U/D/P/I/O/L/M, e=Exit): " SelectSlot
+        read -p "Please select? (1-10, R/S/T/U/D/P/B/F/I/O/L/M, e=Exit): " SelectSlot
       else
-        read -p "Please select? (1-10, R/S/T/U/D/P/I/L/M, e=Exit): " SelectSlot
+        read -p "Please select? (1-10, R/S/T/U/D/P/B/F/I/L/M, e=Exit): " SelectSlot
       fi
     else
       read -p "Please select? (1-10, L/M, e=Exit): " SelectSlot
@@ -2484,6 +2850,10 @@ vsetup()
               fi ;;
 
         [Pp]) echo ""; tsupdate;;
+
+        [Bb]) echo ""; tsbeta;;
+
+        [Ff]) echo ""; tsdowngrade;;
 
         [Ii]) echo ""; tsreset;;
 
@@ -2916,6 +3286,7 @@ saveconfig()
      echo 'schedulemin='$schedulemin
      echo 'amtmemailsuccess='$amtmemailsuccess
      echo 'amtmemailfailure='$amtmemailfailure
+     echo 'ratelimit='$ratelimit
      echo 'tsoperatingmode="'"$tsoperatingmode"'"'
      echo 'persistentsettings='$persistentsettings
      echo 'exitnode='$exitnode
@@ -3175,11 +3546,17 @@ while true; do
     tsver=$(tailscale version | awk 'NR==1 {print $1}') >/dev/null 2>&1
     if [ -z "$tsver" ]; then tsver="0.00"; fi
 
+    if [ "$ratelimit" = "0" ]; then
+      rldisp="${CRed}RL"
+    else
+      rldisp="${CGreen}RL:$ratelimit/h"
+    fi
+
     #Display tailmon client header
     echo -en "${InvGreen} ${InvDkGray} TAILMON - v"
     printf "%-8s" $version
     echo -e "                           ${CWhite}Operations Menu ${InvDkGray}            $tzspaces$(date) ${CClear}"
-    echo -e "${InvGreen} ${CClear} ${CGreen}(R)${CClear}e-${CGreen}(S)${CClear}tart / S${CGreen}(T)${CClear}op Tailscale Service              ${InvGreen} ${CClear} ${CGreen}(C)${CClear}onfiguration Menu / Main Setup Menu${CClear}"
+    echo -e "${InvGreen} ${CClear} ${CGreen}(R)${CClear}e-${CGreen}(S)${CClear}tart / S${CGreen}(T)${CClear}op Tailscale Service              ${InvGreen} ${CClear} ${CGreen}(C)${CClear}onfiguration Menu / Main Setup Menu | $rldisp${CClear}"
     echo -e "${InvGreen} ${CClear} Tailscale Connection ${CGreen}(U)${CClear}p / ${CGreen}(D)${CClear}own                   ${InvGreen} ${CClear} ${CGreen}(L)${CClear}og Viewer / Trim Log Size (rows): ${CGreen}$logsize${CClear}"
 
     if [ "$tsoperatingmode" == "Custom" ]; then
@@ -3308,9 +3685,6 @@ while true; do
       echo ""
       sendmessage 1 "Tailscale Service Restarted"
 
-      printf "\33[2K\r"
-      printf "${CGreen}\r[Allowing Recovery Time]"
-      spinner 60
       exec sh /jffs/scripts/tailmon.sh -noswitch
 
     fi
