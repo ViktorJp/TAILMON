@@ -1,4 +1,4 @@
-v1.2.02b  - (TBA)
+v1.2.03b  - (TBA)
           - MINOR: Added the ability to DOWNGRADE your Tailscale version to a previous version (even a Beta
             if you so wish). This certainly is needed functionality, as the Tailscale installer does not have
             this capability built-in. This procedure was formalized, based on the step-by-step guidance from
@@ -17,6 +17,9 @@ v1.2.02b  - (TBA)
           - PATCH: Decided to remove the email notifications for when Operating Modes switch from userspace,
             to kernel, to custom. Each time the service resets, it applies the settings for these modes, and
             would shoot off an annoying email about this. 
+          - PATCH: Going with recommendations from @Stephen Harrington, the ability to split out to check for
+            updates between the script itself and the tailscale binaries has been completed. These options
+            are set within the same "schedule autoupdate" item under the configuration menu.
 
 v1.1.1    - (July 26, 2025)
           - PATCH: Modified a section of code that checks to see if the Tailscale service is dead, and tries
