@@ -2,6 +2,8 @@ TO-DO
 -----
 * Do more error/status checking on the install of tailscale entware packages, and during the startup of the service/connection... and if it errors out, present better messaging around that, and potentially stopping the script in order to do more troubleshooting.
 * Remove RL tag if amtm email functionality is turned off completely
+* Include RL tag on AMTM config item to show if enabled or not
+* Add ability for scripts beta releases to autoupdate to new beta releases (instead of stable downgrades)
 
 DONE
 ----
