@@ -24,6 +24,7 @@ v1.2.04b  - (TBA)
             are set within the same "schedule autoupdate" item under the configuration menu.
           - PATCH: Expanding further on the separation of scripts/binary updates, if the TAILMON script that
             is currently running is a beta, you can now update (or autoupdate) to the next available beta.
+            Thanks @swejuggalo!
 
 v1.1.1    - (July 26, 2025)
           - PATCH: Modified a section of code that checks to see if the Tailscale service is dead, and tries
