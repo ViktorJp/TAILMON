@@ -3608,6 +3608,16 @@ while true; do
       amtmdisp="${CDkGray}Disabled        "
     fi
 
+	  rldisp=""
+    if [ "$amtmemailsuccess" = "1" ] || [ "$amtmemailfailure" = "1" ]
+      then
+		    if [ "$ratelimit" = "0" ]; then
+		      rldisp="| ${CRed}RL"
+		    else
+		      rldisp="| ${CGreen}RL:$ratelimit/h"
+		    fi
+		fi
+
     tzone=$(date +%Z)
     tzonechars=$(echo ${#tzone})
 
@@ -3622,15 +3632,6 @@ while true; do
 
     tsver=$(tailscale version | awk 'NR==1 {print $1}') >/dev/null 2>&1
     if [ -z "$tsver" ]; then tsver="0.00"; fi
-
-    if [ "$amtmemailsuccess" = "1" ] || [ "$amtmemailfailure" = "1" ]
-      then
-		    if [ "$ratelimit" = "0" ]; then
-		      rldisp="| ${CRed}RL"
-		    else
-		      rldisp="| ${CGreen}RL:$ratelimit/h"
-		    fi
-		fi
 
     #Display tailmon client header
     echo -en "${InvGreen} ${InvDkGray} TAILMON - v"
