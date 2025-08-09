@@ -13,7 +13,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.2.03b"
+version="1.2.04b"
 beta=1
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
@@ -883,17 +883,24 @@ autoupdate()
 		  sleep 1
 		
 		  printf "\33[2K\r"
-		  printf "${CGreen}\r[Checking Official TAILMON Version]"
-		  sleep 1
 		
 		  # Download the latest version file from the source repository
-		  curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
+		  if [ "$beta" = "1" ]
+		  	then
+		    printf "${CGreen}\r[Checking TAILMON BETA Version]"
+		    curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
+		  else
+		    printf "${CGreen}\r[Checking Official TAILMON Version]"
+		    curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
+		  fi
+		  
+		  sleep 1
 		  officialverchk=$?
 		  if [ $officialverchk -ne 0 ]
 		    then
 		    printf "\33[2K\r"
-		    printf "${CGreen}\r[Unable to Determine Official TAILMON Version...Exiting]\n"
-		  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to determine official TAILMON version -- please check your internet connection. Autoupdate exiting." >> $logfile
+		    printf "${CGreen}\r[Unable to Determine TAILMON Version...Exiting]\n"
+		  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to determine TAILMON version -- please check your internet connection. Autoupdate exiting." >> $logfile
 		    echo -e "${CClear}"
 		    sendmessage 1 "Unable to reach TAILMON repository"
 		    sleep 1
@@ -912,10 +919,18 @@ autoupdate()
 		  if [ "$localver" != "$serverver" ]
 		    then
 		      printf "\33[2K\r"
-		      printf "${CGreen}\r[Downloading New TAILMON v$serverver]\n"
+
+		      if [ "$beta" = "1" ]
+		      	then
+		      	printf "${CGreen}\r[Downloading New TAILMON BETA v$serverver]\n"
+		        curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+		      else
+		        printf "${CGreen}\r[Downloading New TAILMON v$serverver]\n"
+		        curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+		      fi
+		      
 		      echo -e "${CClear}"
 		      sleep 1
-		      curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
 		      officialver=$?
 		      if [ $officialver -ne 0 ]
 		        then
@@ -2285,8 +2300,8 @@ while true; do
   echo ""
   read -p "Please select? (1-2, r=Set Email Rate Limit, t=Test Email, e=Exit): " SelectSlot
     case $SelectSlot in
-      1) if [ "$amtmemailsuccess" == "0" ]; then amtmemailsuccess=1; amtmemailsuccessdisp="${CGreen}Y${CCyan}"; elif [ "$amtmemailsuccess" == "1" ]; then amtmemailsuccess=0; amtmemailsuccessdisp="${CRed}N${CCyan}"; fi;;
-      2) if [ "$amtmemailfailure" == "0" ]; then amtmemailfailure=1; amtmemailfailuredisp="${CGreen}Y${CCyan}"; elif [ "$amtmemailfailure" == "1" ]; then amtmemailfailure=0; amtmemailfailuredisp="${CRed}N${CCyan}"; fi;;
+      1) if [ "$amtmemailsuccess" == "0" ]; then amtmemailsuccess=1; amtmemailsuccessdisp="${CGreen}Y${CCyan}"; elif [ "$amtmemailsuccess" == "1" ]; then amtmemailsuccess=0; amtmemailsuccessdisp="${CRed}N${CCyan}"; saveconfig; fi;;
+      2) if [ "$amtmemailfailure" == "0" ]; then amtmemailfailure=1; amtmemailfailuredisp="${CGreen}Y${CCyan}"; elif [ "$amtmemailfailure" == "1" ]; then amtmemailfailure=0; amtmemailfailuredisp="${CRed}N${CCyan}"; saveconfig; fi;;
       [Tt])
          if [ -f "$CUSTOM_EMAIL_LIBFile" ]
            then
@@ -2950,7 +2965,17 @@ vconfig()
     else
       amtmemailsuccfaildisp="Disabled"
     fi
-
+    
+    rldisp=""
+    if [ "$amtmemailsuccess" = "1" ] || [ "$amtmemailfailure" = "1" ]
+      then
+		    if [ "$ratelimit" = "0" ]; then
+		      rldisp="| ${CRed}RL"
+		    else
+		      rldisp="| ${CGreen}RL:$ratelimit/h"
+		    fi
+    fi
+    
     if [ $autostart -eq 0 ]; then
       autostartdisp="Disabled"
     elif [ $autostart -eq 1 ]; then
@@ -2967,7 +2992,7 @@ vconfig()
        schedmin="$(printf "%02d" "$schedulemin")"
        schedtime="${CGreen}$schedhrs:$schedmin${CClear}"
     fi
-
+    
     clear
     echo -e "${InvGreen} ${InvDkGray}${CWhite} TAILMON Configuration Option                                                          ${CClear}"
     echo -e "${InvGreen} ${CClear}"
@@ -2978,7 +3003,7 @@ vconfig()
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(1)${CClear} : Keep Tailscale Service Alive                 : ${CGreen}$keepalivedisp"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(2)${CClear} : Timer Check Loop Interval                    : ${CGreen}${timerloop}sec"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(3)${CClear} : Custom Event Log size (rows)                 : ${CGreen}$logsize"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(4)${CClear} : AMTM Email Notifications on Success/Failure  : ${CGreen}$amtmemailsuccfaildisp"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(4)${CClear} : AMTM Email Notifications / Rate Limiting     : ${CGreen}$amtmemailsuccfaildisp $rldisp"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(5)${CClear} : Keep settings on Tailscale Entware updates   : ${CGreen}$persistentsettingsdisp"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(6)${CClear} : Autostart TAILMON on Reboot                  : ${CGreen}$autostartdisp"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(7)${CClear} : Schedule TAILMON + Tailscale Autoupdate      : ${CGreen}$schedtime${CClear}"
@@ -3108,8 +3133,14 @@ vupdate()
         echo -e "your local copy with the current build.${CClear}"
         if promptyn "[y/n]: "; then
           echo ""
-          echo -e "\nDownloading TAILMON ${CGreen}v$DLversion${CClear}"
-          curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+          if [ "$beta" = "1" ]
+          	then
+          	echo -e "\nDownloading TAILMON BETA ${CGreen}v$DLversion${CClear}"
+            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+          else
+            echo -e "\nDownloading TAILMON ${CGreen}v$DLversion${CClear}"
+            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+          fi
           echo ""
           echo -e "Download successful!${CClear}"
           echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON update successfully downloaded and installed." >> $logfile
@@ -3127,8 +3158,14 @@ vupdate()
         echo -e "Score! There is a new version out there! Would you like to update?${CClear}"
         if promptyn "[y/n]: "; then
           echo ""
-          echo -e "\nDownloading TAILMON ${CGreen}v$DLversion${CClear}"
-          curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+          if [ "$beta" = "1" ]
+          	then
+          	echo -e "\nDownloading TAILMON BETA ${CGreen}v$DLversion${CClear}"
+            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+          else
+            echo -e "\nDownloading TAILMON ${CGreen}v$DLversion${CClear}"
+            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+          fi
           echo ""
           echo -e "Download successful!${CClear}"
           echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON update successfully downloaded and installed." >> $logfile
@@ -3152,7 +3189,12 @@ vupdate()
 updatecheck()
 {
   # Download the latest version file from the source repository
-  curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
+  if [ "$beta" = "1" ]
+  	then
+      curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
+    else
+      curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
+  fi
 
   if [ -f $dlverpath ]
     then
@@ -3160,8 +3202,13 @@ updatecheck()
       DLversion=$(cat $dlverpath)
 
       # Compare the new version with the old version and log it
-      if [ "$beta" == "1" ]; then   # Check if Dev/Beta Mode is enabled and disable notification message
-        UpdateNotify=0
+      if [ "$beta" = "1" ]; then   # Check if Dev/Beta Mode is enabled and disable notification message
+        if [ "$DLversion" != "$version" ]; then
+          DLversionPF=$(printf "%-8s" $DLversion)
+          versionPF=$(printf "%-8s" $version)
+          UpdateNotify="${InvYellow} ${InvDkGray}${CWhite} Beta Update available: v$versionPF -> v$DLversionPF                                                                ${CClear}"
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: New TAILMON BETA v$DLversion available for download/install." >> $logfile
+        fi
       elif [ "$DLversion" != "$version" ]; then
         DLversionPF=$(printf "%-8s" $DLversion)
         versionPF=$(printf "%-8s" $version)
@@ -3325,6 +3372,10 @@ saveconfig()
      echo 'customcmdline="'"$customcmdline"'"'
    } > $config
    echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON config has been updated." >> $logfile
+
+   if [ -f $config ]; then
+     source $config
+   fi
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -3572,17 +3623,20 @@ while true; do
     tsver=$(tailscale version | awk 'NR==1 {print $1}') >/dev/null 2>&1
     if [ -z "$tsver" ]; then tsver="0.00"; fi
 
-    if [ "$ratelimit" = "0" ]; then
-      rldisp="${CRed}RL"
-    else
-      rldisp="${CGreen}RL:$ratelimit/h"
-    fi
+    if [ "$amtmemailsuccess" = "1" ] || [ "$amtmemailfailure" = "1" ]
+      then
+		    if [ "$ratelimit" = "0" ]; then
+		      rldisp="| ${CRed}RL"
+		    else
+		      rldisp="| ${CGreen}RL:$ratelimit/h"
+		    fi
+		fi
 
     #Display tailmon client header
     echo -en "${InvGreen} ${InvDkGray} TAILMON - v"
     printf "%-8s" $version
     echo -e "                           ${CWhite}Operations Menu ${InvDkGray}            $tzspaces$(date) ${CClear}"
-    echo -e "${InvGreen} ${CClear} ${CGreen}(R)${CClear}e-${CGreen}(S)${CClear}tart / S${CGreen}(T)${CClear}op Tailscale Service              ${InvGreen} ${CClear} ${CGreen}(C)${CClear}onfiguration Menu / Main Setup Menu | $rldisp${CClear}"
+    echo -e "${InvGreen} ${CClear} ${CGreen}(R)${CClear}e-${CGreen}(S)${CClear}tart / S${CGreen}(T)${CClear}op Tailscale Service              ${InvGreen} ${CClear} ${CGreen}(C)${CClear}onfiguration Menu / Main Setup Menu $rldisp${CClear}"
     echo -e "${InvGreen} ${CClear} Tailscale Connection ${CGreen}(U)${CClear}p / ${CGreen}(D)${CClear}own                   ${InvGreen} ${CClear} ${CGreen}(L)${CClear}og Viewer / Trim Log Size (rows): ${CGreen}$logsize${CClear}"
 
     if [ "$tsoperatingmode" == "Custom" ]; then
