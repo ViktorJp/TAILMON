@@ -1,4 +1,4 @@
-v1.2.03b  - (TBA)
+v1.2.04b  - (TBA)
           - MINOR: Added the ability to DOWNGRADE your Tailscale version to a previous version (even a Beta
             if you so wish). This certainly is needed functionality, as the Tailscale installer does not have
             this capability built-in. This procedure was formalized, based on the step-by-step guidance from
