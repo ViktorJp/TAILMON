@@ -10,7 +10,9 @@ v1.2.03b  - (TBA)
             Email Notifications, and lets you specify how many emails you can receive per hour. An indicator
             is visible on the top right hand side of the screen, indicating "RL" (in red) as Rate Limiting
             being disabled, while "RL:10/h" (in green) showing Rate Limiting enabled, with 10 emails/hr set
-            as the rate limit.
+            as the rate limit. 
+          - PATCH: Based on a recommendation from @JGrana, the RL indicators will no longer show up on the
+            main UI (or in the config display) when AMTM email functionality is turned off.
           - PATCH: Added functionality under the Main Setup & Configuration Menu that allows you to upgrade
             to the latest Tailscale (B)ETA version. Use at your own risk. You can thank @swejuggalo for this
             addition! :)
@@ -20,6 +22,8 @@ v1.2.03b  - (TBA)
           - PATCH: Going with recommendations from @Stephen Harrington, the ability to split out to check for
             updates between the script itself and the tailscale binaries has been completed. These options
             are set within the same "schedule autoupdate" item under the configuration menu.
+          - PATCH: Expanding further on the separation of scripts/binary updates, if the TAILMON script that
+            is currently running is a beta, you can now update (or autoupdate) to the next available beta.
 
 v1.1.1    - (July 26, 2025)
           - PATCH: Modified a section of code that checks to see if the Tailscale service is dead, and tries
