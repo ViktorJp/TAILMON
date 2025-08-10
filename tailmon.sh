@@ -3208,14 +3208,18 @@ updatecheck()
           versionPF=$(printf "%-8s" $version)
           UpdateNotify="${InvYellow} ${InvDkGray}${CWhite} Beta Update available: v$versionPF -> v$DLversionPF                                                                ${CClear}"
           echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: New TAILMON BETA v$DLversion available for download/install." >> $logfile
+        else
+          UpdateNotify=0
         fi
-      elif [ "$DLversion" != "$version" ]; then
-        DLversionPF=$(printf "%-8s" $DLversion)
-        versionPF=$(printf "%-8s" $version)
-        UpdateNotify="${InvYellow} ${InvDkGray}${CWhite} Update available: v$versionPF -> v$DLversionPF                                                                     ${CClear}"
-        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: New TAILMON v$DLversion available for download/install." >> $logfile
       else
-        UpdateNotify=0
+        if [ "$DLversion" != "$version" ]; then
+          DLversionPF=$(printf "%-8s" $DLversion)
+          versionPF=$(printf "%-8s" $version)
+          UpdateNotify="${InvYellow} ${InvDkGray}${CWhite} Update available: v$versionPF -> v$DLversionPF                                                                     ${CClear}"
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: New TAILMON v$DLversion available for download/install." >> $logfile
+        else
+          UpdateNotify=0
+        fi
       fi
   fi
 }
@@ -3570,6 +3574,8 @@ fi
 
 while true; do
 
+  clear
+
   # Grab the TAILMON config file and read it in
   if [ -f $config ]; then
     source $config
@@ -3588,7 +3594,6 @@ while true; do
 
   if [ -f "/opt/bin/tailscale" ]; then
     tsinstalled=1
-    clear
 
     if [ $keepalive -eq 1 ]; then
       keepalivedisp="Yes"
@@ -3627,11 +3632,14 @@ while true; do
     elif [ $tzonechars = 4 ]; then tzspaces="     ";
     elif [ $tzonechars = 5 ]; then tzspaces="    "; fi
 
-    #Display tailmon Update Notifications
-    if [ "$UpdateNotify" != "0" ]; then echo -e "$UpdateNotify"; fi
-
     tsver=$(tailscale version | awk 'NR==1 {print $1}') >/dev/null 2>&1
     if [ -z "$tsver" ]; then tsver="0.00"; fi
+
+    #Display tailmon Update Notifications
+    if [ "$UpdateNotify" != "0" ]
+    	then 
+    		echo -e "$UpdateNotify"
+    fi
 
     #Display tailmon client header
     echo -en "${InvGreen} ${InvDkGray} TAILMON - v"
