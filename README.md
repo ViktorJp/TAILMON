@@ -5,7 +5,7 @@ Updated: 2025-Aug-11
 
 ---
 
-![image](https://github.com/ViktorJp/TAILMON/assets/97465574/81efa3a6-f465-499b-84d7-bec694ce2c4c)
+<img width="1083" height="677" alt="image" src="https://github.com/user-attachments/assets/f3eb43a0-c43f-4f5b-90e4-2be7d7d659f7" />
 
 ---
 
