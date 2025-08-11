@@ -7,14 +7,14 @@
 # monitor application that will sit in the background (using the -screen utility), and will restart the Tailscale service
 # should it happen to go down. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi, and @kuki68ster for all their help, input
 # and testing of this script!
-# Last Updated: 2025-Aug-09
+# Last Updated: 2025-Aug-11
 
 #Preferred standard router binaries path
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.2.0b4"
-beta=1
+version="1.2.0"
+beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
 dlverpath="/jffs/addons/tailmon.d/version.txt"                       # Static path to the version file
@@ -874,204 +874,204 @@ autoupdate()
   echo ""
 
   if [ "$updatetm" -eq 1 ]
-  	then
-		  printf "\33[2K\r"
-		  printf "${CGreen}\r[Checking Local TAILMON Version]"
-		
-		  # Copy current version of script into a version file
-		  echo "$version" > "/jffs/addons/tailmon.d/localver.txt"
-		  sleep 1
-		
-		  printf "\33[2K\r"
-		
-		  # Download the latest version file from the source repository
-		  if [ "$beta" = "1" ]
-		  	then
-		    printf "${CGreen}\r[Checking TAILMON BETA Version]"
-		    curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
-		  else
-		    printf "${CGreen}\r[Checking Official TAILMON Version]"
-		    curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
-		  fi
-		  
-		  sleep 1
-		  officialverchk=$?
-		  if [ $officialverchk -ne 0 ]
-		    then
-		    printf "\33[2K\r"
-		    printf "${CGreen}\r[Unable to Determine TAILMON Version...Exiting]\n"
-		  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to determine TAILMON version -- please check your internet connection. Autoupdate exiting." >> $logfile
-		    echo -e "${CClear}"
-		    sendmessage 1 "Unable to reach TAILMON repository"
-		    sleep 1
-		    rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
-		    exit 1
-		  fi
-		  sleep 1
-		
-		  printf "\33[2K\r"
-		  printf "${CGreen}\r[Comparing TAILMON Versions]"
-		  sleep 1
-		
-		  # Check differences in version and download if newer official version is present
-		  localver=$(cat "/jffs/addons/tailmon.d/localver.txt")
-		  serverver=$(cat "/jffs/addons/tailmon.d/version.txt")
-		  if [ "$localver" != "$serverver" ]
-		    then
-		      printf "\33[2K\r"
+    then
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Checking Local TAILMON Version]"
 
-		      if [ "$beta" = "1" ]
-		      	then
-		      	printf "${CGreen}\r[Downloading New TAILMON BETA v$serverver]\n"
-		        curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-		      else
-		        printf "${CGreen}\r[Downloading New TAILMON v$serverver]\n"
-		        curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-		      fi
-		      
-		      echo -e "${CClear}"
-		      sleep 1
-		      officialver=$?
-		      if [ $officialver -ne 0 ]
-		        then
-		          printf "\33[2K\r"
-		          printf "${CGreen}\r[Unable to Download Official TAILMON Version...Exiting]\n"
-		        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to download official TAILMON version -- please check your internet connection. Autoupdate exiting." >> $logfile
-		          echo -e "${CClear}"
-		          sendmessage 1 "Unable to reach TAILMON repository"
-		          sleep 1
-		          rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
-		          exit 1
-		      fi
-		      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Successfully autoupdated TAILMON from v$localver to v$serverver" >> $logfile
-		      sendmessage 0 "TAILMON Script Successfully Updated" $localver $serverver
-		      echo > /jffs/addons/tailmon.d/updated.txt
-		  else
-		    printf "\33[2K\r"
-		    printf "${CGreen}\r[Local TAILMON Version is the Latest Available]\n"
-		    echo -e "${CClear}"
-		    sleep 1
-		  fi
-		  sleep 1
-	fi
+      # Copy current version of script into a version file
+      echo "$version" > "/jffs/addons/tailmon.d/localver.txt"
+      sleep 1
+
+      printf "\33[2K\r"
+
+      # Download the latest version file from the source repository
+      if [ "$beta" = "1" ]
+        then
+        printf "${CGreen}\r[Checking TAILMON BETA Version]"
+        curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
+      else
+        printf "${CGreen}\r[Checking Official TAILMON Version]"
+        curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
+      fi
+
+      sleep 1
+      officialverchk=$?
+      if [ $officialverchk -ne 0 ]
+        then
+        printf "\33[2K\r"
+        printf "${CGreen}\r[Unable to Determine TAILMON Version...Exiting]\n"
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to determine TAILMON version -- please check your internet connection. Autoupdate exiting." >> $logfile
+        echo -e "${CClear}"
+        sendmessage 1 "Unable to reach TAILMON repository"
+        sleep 1
+        rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
+        exit 1
+      fi
+      sleep 1
+
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Comparing TAILMON Versions]"
+      sleep 1
+
+      # Check differences in version and download if newer official version is present
+      localver=$(cat "/jffs/addons/tailmon.d/localver.txt")
+      serverver=$(cat "/jffs/addons/tailmon.d/version.txt")
+      if [ "$localver" != "$serverver" ]
+        then
+          printf "\33[2K\r"
+
+          if [ "$beta" = "1" ]
+            then
+            printf "${CGreen}\r[Downloading New TAILMON BETA v$serverver]\n"
+            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+          else
+            printf "${CGreen}\r[Downloading New TAILMON v$serverver]\n"
+            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+          fi
+
+          echo -e "${CClear}"
+          sleep 1
+          officialver=$?
+          if [ $officialver -ne 0 ]
+            then
+              printf "\33[2K\r"
+              printf "${CGreen}\r[Unable to Download Official TAILMON Version...Exiting]\n"
+            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to download official TAILMON version -- please check your internet connection. Autoupdate exiting." >> $logfile
+              echo -e "${CClear}"
+              sendmessage 1 "Unable to reach TAILMON repository"
+              sleep 1
+              rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
+              exit 1
+          fi
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Successfully autoupdated TAILMON from v$localver to v$serverver" >> $logfile
+          sendmessage 0 "TAILMON Script Successfully Updated" $localver $serverver
+          echo > /jffs/addons/tailmon.d/updated.txt
+      else
+        printf "\33[2K\r"
+        printf "${CGreen}\r[Local TAILMON Version is the Latest Available]\n"
+        echo -e "${CClear}"
+        sleep 1
+      fi
+      sleep 1
+  fi
 
   if [ "$updatets" -eq 1 ]
-  	then
-		  printf "\33[2K\r"
-		  printf "${CGreen}\r[Checking Local Tailscale Version]"
-		  sleep 1
-		
-		  # Checking for local Tailscale version
-		  echo $(tailscale version | awk 'NR==1 {print $1}') > /jffs/addons/tailmon.d/localtsver.txt
-		  localtsverchk=$?
-		  if [ $localtsverchk -ne 0 ]
-		    then
-		      printf "\33[2K\r"
-		      printf "${CGreen}\r[Unable to Determine Local Tailscale Version...Exiting]\n"
-		      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to determine local Tailscale version -- please check your installation. Autoupdate exiting." >> $logfile
-		      echo -e "${CClear}"
-		      sleep 2
-		      rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
-		      exit 1
-		  fi
-		  sleep 1
-		
-		  printf "\33[2K\r"
-		  printf "${CGreen}\r[Checking Official Tailscale Version]"
-		  sleep 1
-		
-		  # Checking for upstream Tailscale version
-		  echo $(tailscale version --upstream | grep "upstream" | cut -d ':' -f 2) > /jffs/addons/tailmon.d/tsversion.txt
-		  upstreamtsverchk=$?
-		  if [ $upstreamtsverchk -ne 0 ]
-		    then
-		      printf "\33[2K\r"
-		      printf "${CGreen}\r[Unable to Determine Official Tailscale Version...Exiting]\n"
-		      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to determine Official Tailscale version -- please check your installation/internet connection. Autoupdate exiting." >> $logfile
-		      echo -e "${CClear}"
-		      sendmessage 1 "Unable to reach Tailscale repository"
-		      sleep 1
-		      rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
-		      exit 1
-		  fi
-		  sleep 1
-		
-		  printf "\33[2K\r"
-		  printf "${CGreen}\r[Comparing Tailscale Versions]"
-		  sleep 1
-		
-		  # Check differences in version and download if newer official version is present
-		  localtsver=$(cat "/jffs/addons/tailmon.d/localtsver.txt")
-		  servertsver=$(cat "/jffs/addons/tailmon.d/tsversion.txt")
-		  if [ "$localtsver" != "$servertsver" ]
-		    then
-		      printf "\33[2K\r"
-		      printf "${CGreen}\r[Downloading New Tailscale v$servertsver]\n"
-		      echo -e "${CClear}"
-		      sleep 1
-		      tailscale update -yes
-		      officialtsver=$?
-		      if [ $officialtsver -ne 0 ]
-		        then
-		          printf "\33[2K\r"
-		          printf "${CGreen}\r[Unable to Download Official Tailscale Version...Exiting]\n"
-		          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to download official Tailscale version - please check your installation/internet connection." >> $logfile
-		          echo -e "${CClear}"
-		          sendmessage 1 "Unable to reach Tailscale repository"
-		          sleep 1
-		          rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
-		          exit 1
-		      fi
-		      echo ""
-		      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Successfully autoupdated Tailscale from v$localtsver to v$servertsver" >> $logfile
-		      sendmessage 0 "Tailscale Successfully Updated" $localtsver $servertsver
-		
-		      # Upon a successful update, restart Tailscale services
-		      echo ""; echo ""
-		      printf "\33[2K\r"
-		      printf "${CGreen}\r[Restarting Tailscale Service/Connection]\n"
-		      echo -e "${CClear}"
-		      sleep 1
-		
-		      tsdown
-		      stopts
-		
-		      #make mods to the S06tailscaled service for Userspace mode
-		      if [ "$tsoperatingmode" == "Userspace" ]; then
-		        applyuserspacemode
-		      #make mods to the S06tailscaled service for Kernel mode
-		      elif [ "$tsoperatingmode" == "Kernel" ]; then
-		        applykernelmode
-		      #make mods to the S06tailscaled service for Custom mode
-		      elif [ "$tsoperatingmode" == "Custom" ]; then
-		        applycustomchanges
-		      fi
-		
-		      startts
-		      tsup
-		
-		      echo ""
-		      printf "\33[2K\r"
-		      printf "${CGreen}\r[Tailscale Service/Connection Successfully Restarted]\n"
-		      echo -e "${CClear}"
-		      sleep 1
-		      printf "\33[2K\r"
-		      printf "${CGreen}\r[Autoupdate Completed Successfully]\n"
-		      echo -e "${CClear}"
-		      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Autoupdate completed successfully." >> $logfile
-		      sleep 1
-		      rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
-		      exit 0
-		
-		  else
-		    printf "\33[2K\r"
-		    printf "${CGreen}\r[Local Tailscale Version is the Latest Available...Exiting]\n"
-		    echo -e "${CClear}"
-		    sleep 1
-		    
-		  fi
-	fi
-		    
+    then
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Checking Local Tailscale Version]"
+      sleep 1
+
+      # Checking for local Tailscale version
+      echo $(tailscale version | awk 'NR==1 {print $1}') > /jffs/addons/tailmon.d/localtsver.txt
+      localtsverchk=$?
+      if [ $localtsverchk -ne 0 ]
+        then
+          printf "\33[2K\r"
+          printf "${CGreen}\r[Unable to Determine Local Tailscale Version...Exiting]\n"
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to determine local Tailscale version -- please check your installation. Autoupdate exiting." >> $logfile
+          echo -e "${CClear}"
+          sleep 2
+          rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
+          exit 1
+      fi
+      sleep 1
+
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Checking Official Tailscale Version]"
+      sleep 1
+
+      # Checking for upstream Tailscale version
+      echo $(tailscale version --upstream | grep "upstream" | cut -d ':' -f 2) > /jffs/addons/tailmon.d/tsversion.txt
+      upstreamtsverchk=$?
+      if [ $upstreamtsverchk -ne 0 ]
+        then
+          printf "\33[2K\r"
+          printf "${CGreen}\r[Unable to Determine Official Tailscale Version...Exiting]\n"
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to determine Official Tailscale version -- please check your installation/internet connection. Autoupdate exiting." >> $logfile
+          echo -e "${CClear}"
+          sendmessage 1 "Unable to reach Tailscale repository"
+          sleep 1
+          rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
+          exit 1
+      fi
+      sleep 1
+
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Comparing Tailscale Versions]"
+      sleep 1
+
+      # Check differences in version and download if newer official version is present
+      localtsver=$(cat "/jffs/addons/tailmon.d/localtsver.txt")
+      servertsver=$(cat "/jffs/addons/tailmon.d/tsversion.txt")
+      if [ "$localtsver" != "$servertsver" ]
+        then
+          printf "\33[2K\r"
+          printf "${CGreen}\r[Downloading New Tailscale v$servertsver]\n"
+          echo -e "${CClear}"
+          sleep 1
+          tailscale update -yes
+          officialtsver=$?
+          if [ $officialtsver -ne 0 ]
+            then
+              printf "\33[2K\r"
+              printf "${CGreen}\r[Unable to Download Official Tailscale Version...Exiting]\n"
+              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to download official Tailscale version - please check your installation/internet connection." >> $logfile
+              echo -e "${CClear}"
+              sendmessage 1 "Unable to reach Tailscale repository"
+              sleep 1
+              rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
+              exit 1
+          fi
+          echo ""
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Successfully autoupdated Tailscale from v$localtsver to v$servertsver" >> $logfile
+          sendmessage 0 "Tailscale Successfully Updated" $localtsver $servertsver
+
+          # Upon a successful update, restart Tailscale services
+          echo ""; echo ""
+          printf "\33[2K\r"
+          printf "${CGreen}\r[Restarting Tailscale Service/Connection]\n"
+          echo -e "${CClear}"
+          sleep 1
+
+          tsdown
+          stopts
+
+          #make mods to the S06tailscaled service for Userspace mode
+          if [ "$tsoperatingmode" == "Userspace" ]; then
+            applyuserspacemode
+          #make mods to the S06tailscaled service for Kernel mode
+          elif [ "$tsoperatingmode" == "Kernel" ]; then
+            applykernelmode
+          #make mods to the S06tailscaled service for Custom mode
+          elif [ "$tsoperatingmode" == "Custom" ]; then
+            applycustomchanges
+          fi
+
+          startts
+          tsup
+
+          echo ""
+          printf "\33[2K\r"
+          printf "${CGreen}\r[Tailscale Service/Connection Successfully Restarted]\n"
+          echo -e "${CClear}"
+          sleep 1
+          printf "\33[2K\r"
+          printf "${CGreen}\r[Autoupdate Completed Successfully]\n"
+          echo -e "${CClear}"
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Autoupdate completed successfully." >> $logfile
+          sleep 1
+          rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
+          exit 0
+
+      else
+        printf "\33[2K\r"
+        printf "${CGreen}\r[Local Tailscale Version is the Latest Available...Exiting]\n"
+        echo -e "${CClear}"
+        sleep 1
+
+      fi
+  fi
+
   printf "\33[2K\r"
   printf "${CGreen}\r[Autoupdate Completed Successfully]\n"
   echo -e "${CClear}"
@@ -1328,116 +1328,116 @@ do
       2) if [ "$updatets" == "0" ]; then updatets=1; updatetsdisp="${CGreen}Enabled${CCyan}"; elif [ "$updatets" == "1" ]; then updatets=0; updatetsdisp="${CRed}Disabled${CCyan}"; fi; saveconfig;;
 
       [Nn])
-		      schedule=0
-		      if [ -f /jffs/scripts/services-start ]
-		      then
-	 	        sed -i -e '/tailmon.sh/d' /jffs/scripts/services-start
-		        cru d RunTAILMONcheck
-		        schedulehrs=1
-		        schedulemin=0
-		        echo ""
-		        echo -e "${CGreen}[Modifiying SERVICES-START file]..."
- 		        sleep 2
-	 	        echo ""
-		        echo -e "${CGreen}[Modifying CRON jobs]..."
-		        sleep 2
-		        echo -e "$(date +'%b %d %Y %X') $(_GetLAN_HostName_) TAILMON[$$] - INFO: Autoupdate Scheduled Check Disabled" >> $logfile
-		        saveconfig
-		      fi
+          schedule=0
+          if [ -f /jffs/scripts/services-start ]
+          then
+            sed -i -e '/tailmon.sh/d' /jffs/scripts/services-start
+            cru d RunTAILMONcheck
+            schedulehrs=1
+            schedulemin=0
+            echo ""
+            echo -e "${CGreen}[Modifiying SERVICES-START file]..."
+            sleep 2
+            echo ""
+            echo -e "${CGreen}[Modifying CRON jobs]..."
+            sleep 2
+            echo -e "$(date +'%b %d %Y %X') $(_GetLAN_HostName_) TAILMON[$$] - INFO: Autoupdate Scheduled Check Disabled" >> $logfile
+            saveconfig
+          fi
       ;;
-      
+
       [Yy])
-			    schedule=1
-			    echo ""
-			    echo -e "${InvGreen} ${InvDkGray}${CWhite} Select CRON Job Time                                                                  ${CClear}"
-			    echo -e "${InvGreen} ${CClear}"
-			    echo -e "${InvGreen} ${CClear} Please indicate below what time you would like to schedule a daily Autoupdate CRON"
-			    echo -e "${InvGreen} ${CClear} job. (Default = 1 hr, 0 min = 01:00 = 1:00am)"
-			    echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
-			    echo
-			    read -p 'Schedule HOURS [0-23]?: ' newScheduleHrs
-			    if [ -z "$newScheduleHrs" ]
-			    then
-			        if _ValidateCronJobHour_ "$schedulehrs"
-			        then scheduleHrsOK=true
-			        else scheduleHrsOK=false
-			        fi
-			    elif _ValidateCronJobHour_ "$newScheduleHrs"
-			    then
-			        scheduleHrsOK=true
-			        schedulehrs="$newScheduleHrs"
-			    else
-			        scheduleHrsOK=false
-			        schedulehrs="${schedulehrs:=1}"
-			        printf "${CRed}*ERROR*: INVALID Entry.${CClear}\n\n"
-			    fi
-			    read -p 'Schedule MINUTES [0-59]?: ' newScheduleMins
-			    if [ -z "$newScheduleMins" ]
-			    then
-			        if _ValidateCronJobMinute_ "$schedulemin"
-			        then scheduleMinsOK=true
-			        else scheduleMinsOK=false
-			        fi
-			    elif _ValidateCronJobMinute_ "$newScheduleMins"
-			    then
-			        scheduleMinsOK=true
-			        schedulemin="$newScheduleMins"
-			    else
-			        scheduleMinsOK=false
-			        schedulemin="${schedulemin:=0}"
-			        printf "${CRed}*ERROR*: INVALID Entry.${CClear}\n"
-			    fi
-			    if ! "$scheduleHrsOK" || ! "$scheduleMinsOK"
-			    then
-			        doResetSave=false
-			        if ! "$scheduleHrsOK" && ! _ValidateCronJobHour_ "$schedulehrs"
-			        then schedulehrs=1 ; doResetSave=true
-			        fi
-			        if ! "$scheduleMinsOK" && ! _ValidateCronJobMinute_ "$schedulemin"
-			        then schedulemin=0 ; doResetSave=true
-			        fi
-			        if "$doResetSave"
-			        then
-			            schedule=0
-			            saveconfig
-			            printf "\n${CRed}INVALID input found. Resetting values.${CClear}\n\n"
-			        else
-			            printf "\n${CRed}INVALID input found. No changes made.${CClear}\n\n"
-			        fi
-			        echo -e "${CClear}[Exiting]"
-			        timer="$timerloop"
-			        sleep 3
-			        break
-			    fi
-			    echo
-			    echo -e "${CGreen}[Modifying SERVICES-START file]..."
-			    sleep 2
-			
-			    if [ -f /jffs/scripts/services-start ]
-			    then
-			      if ! grep -q -F "sh /jffs/scripts/tailmon.sh -autoupdate" /jffs/scripts/services-start
-			      then
-			        echo 'cru a RunTAILMONcheck "'"$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"'"' >> /jffs/scripts/services-start
-			        cru a RunTAILMONcheck "$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"
-			      else
-			        #delete and re-add if it already exists in case there's a time change
-			        sed -i -e '/tailmon.sh/d' /jffs/scripts/services-start
-			        cru d RunTAILMONcheck
-			        echo 'cru a RunTAILMONcheck "'"$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"'"' >> /jffs/scripts/services-start
-			        cru a RunTAILMONcheck "$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -reset"
-			      fi
-			    else
-			      echo 'cru a RunTAILMONcheck "'"$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"'"' >> /jffs/scripts/services-start
-			      chmod 755 /jffs/scripts/services-start
-			      cru a RunTAILMONcheck "$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"
-			    fi
-			
-			    echo
-			    echo -e "${CGreen}[Modifying CRON jobs]..."
-			    sleep 2
-			    echo -e "$(date +'%b %d %Y %X') $(_GetLAN_HostName_) TAILMON[$$] - INFO: Autoupdate Scheduled Check Enabled" >> $logfile
-			    saveconfig
-			;;
+          schedule=1
+          echo ""
+          echo -e "${InvGreen} ${InvDkGray}${CWhite} Select CRON Job Time                                                                  ${CClear}"
+          echo -e "${InvGreen} ${CClear}"
+          echo -e "${InvGreen} ${CClear} Please indicate below what time you would like to schedule a daily Autoupdate CRON"
+          echo -e "${InvGreen} ${CClear} job. (Default = 1 hr, 0 min = 01:00 = 1:00am)"
+          echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+          echo
+          read -p 'Schedule HOURS [0-23]?: ' newScheduleHrs
+          if [ -z "$newScheduleHrs" ]
+          then
+              if _ValidateCronJobHour_ "$schedulehrs"
+              then scheduleHrsOK=true
+              else scheduleHrsOK=false
+              fi
+          elif _ValidateCronJobHour_ "$newScheduleHrs"
+          then
+              scheduleHrsOK=true
+              schedulehrs="$newScheduleHrs"
+          else
+              scheduleHrsOK=false
+              schedulehrs="${schedulehrs:=1}"
+              printf "${CRed}*ERROR*: INVALID Entry.${CClear}\n\n"
+          fi
+          read -p 'Schedule MINUTES [0-59]?: ' newScheduleMins
+          if [ -z "$newScheduleMins" ]
+          then
+              if _ValidateCronJobMinute_ "$schedulemin"
+              then scheduleMinsOK=true
+              else scheduleMinsOK=false
+              fi
+          elif _ValidateCronJobMinute_ "$newScheduleMins"
+          then
+              scheduleMinsOK=true
+              schedulemin="$newScheduleMins"
+          else
+              scheduleMinsOK=false
+              schedulemin="${schedulemin:=0}"
+              printf "${CRed}*ERROR*: INVALID Entry.${CClear}\n"
+          fi
+          if ! "$scheduleHrsOK" || ! "$scheduleMinsOK"
+          then
+              doResetSave=false
+              if ! "$scheduleHrsOK" && ! _ValidateCronJobHour_ "$schedulehrs"
+              then schedulehrs=1 ; doResetSave=true
+              fi
+              if ! "$scheduleMinsOK" && ! _ValidateCronJobMinute_ "$schedulemin"
+              then schedulemin=0 ; doResetSave=true
+              fi
+              if "$doResetSave"
+              then
+                  schedule=0
+                  saveconfig
+                  printf "\n${CRed}INVALID input found. Resetting values.${CClear}\n\n"
+              else
+                  printf "\n${CRed}INVALID input found. No changes made.${CClear}\n\n"
+              fi
+              echo -e "${CClear}[Exiting]"
+              timer="$timerloop"
+              sleep 3
+              break
+          fi
+          echo
+          echo -e "${CGreen}[Modifying SERVICES-START file]..."
+          sleep 2
+
+          if [ -f /jffs/scripts/services-start ]
+          then
+            if ! grep -q -F "sh /jffs/scripts/tailmon.sh -autoupdate" /jffs/scripts/services-start
+            then
+              echo 'cru a RunTAILMONcheck "'"$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"'"' >> /jffs/scripts/services-start
+              cru a RunTAILMONcheck "$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"
+            else
+              #delete and re-add if it already exists in case there's a time change
+              sed -i -e '/tailmon.sh/d' /jffs/scripts/services-start
+              cru d RunTAILMONcheck
+              echo 'cru a RunTAILMONcheck "'"$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"'"' >> /jffs/scripts/services-start
+              cru a RunTAILMONcheck "$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -reset"
+            fi
+          else
+            echo 'cru a RunTAILMONcheck "'"$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"'"' >> /jffs/scripts/services-start
+            chmod 755 /jffs/scripts/services-start
+            cru a RunTAILMONcheck "$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"
+          fi
+
+          echo
+          echo -e "${CGreen}[Modifying CRON jobs]..."
+          sleep 2
+          echo -e "$(date +'%b %d %Y %X') $(_GetLAN_HostName_) TAILMON[$$] - INFO: Autoupdate Scheduled Check Enabled" >> $logfile
+          saveconfig
+      ;;
 
       [Ee])
           echo ; echo -e "${CClear}[Exiting]"
@@ -1445,7 +1445,7 @@ do
           saveconfig
           return
       ;;
-      
+
     esac
 done
 }
@@ -2965,17 +2965,17 @@ vconfig()
     else
       amtmemailsuccfaildisp="Disabled"
     fi
-    
+
     rldisp=""
     if [ "$amtmemailsuccess" = "1" ] || [ "$amtmemailfailure" = "1" ]
       then
-		    if [ "$ratelimit" = "0" ]; then
-		      rldisp="| ${CRed}RL"
-		    else
-		      rldisp="| ${CGreen}RL:$ratelimit/h"
-		    fi
+        if [ "$ratelimit" = "0" ]; then
+          rldisp="| ${CRed}RL"
+        else
+          rldisp="| ${CGreen}RL:$ratelimit/h"
+        fi
     fi
-    
+
     if [ $autostart -eq 0 ]; then
       autostartdisp="Disabled"
     elif [ $autostart -eq 1 ]; then
@@ -2992,7 +2992,7 @@ vconfig()
        schedmin="$(printf "%02d" "$schedulemin")"
        schedtime="${CGreen}$schedhrs:$schedmin${CClear}"
     fi
-    
+
     clear
     echo -e "${InvGreen} ${InvDkGray}${CWhite} TAILMON Configuration Option                                                          ${CClear}"
     echo -e "${InvGreen} ${CClear}"
@@ -3134,10 +3134,21 @@ vupdate()
         if promptyn "[y/n]: "; then
           echo ""
           if [ "$beta" = "1" ]
-          	then
-          	echo -e "\nDownloading TAILMON BETA ${CGreen}v$DLversion${CClear}"
-            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+            then
+              echo ""
+              echo -e "You are about to download a BETA version. Would you like to update to the latest${CClear}"
+              echo -e "STABLE version?"
+              if promptyn "[y/n]: "; then
+                echo ""
+                echo -e "\nDownloading TAILMON ${CGreen}STABLE${CClear}"
+                curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+              else
+                echo ""
+                echo -e "\nDownloading TAILMON ${CGreen}BETA${CClear}"
+                curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+              fi
           else
+            echo ""
             echo -e "\nDownloading TAILMON ${CGreen}v$DLversion${CClear}"
             curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
           fi
@@ -3159,10 +3170,21 @@ vupdate()
         if promptyn "[y/n]: "; then
           echo ""
           if [ "$beta" = "1" ]
-          	then
-          	echo -e "\nDownloading TAILMON BETA ${CGreen}v$DLversion${CClear}"
-            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+            then
+              echo ""
+              echo -e "You are about to download a BETA version. Would you like to update to the latest${CClear}"
+              echo -e "STABLE version?"
+              if promptyn "[y/n]: "; then
+                echo ""
+                echo -e "\nDownloading TAILMON ${CGreen}STABLE${CClear}"
+                curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+              else
+                echo ""
+                echo -e "\nDownloading TAILMON ${CGreen}BETA${CClear}"
+                curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+              fi
           else
+            echo ""
             echo -e "\nDownloading TAILMON ${CGreen}v$DLversion${CClear}"
             curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
           fi
@@ -3190,7 +3212,7 @@ updatecheck()
 {
   # Download the latest version file from the source repository
   if [ "$beta" = "1" ]
-  	then
+    then
       curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
     else
       curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
@@ -3613,15 +3635,15 @@ while true; do
       amtmdisp="${CDkGray}Disabled        "
     fi
 
-	  rldisp=""
+    rldisp=""
     if [ "$amtmemailsuccess" = "1" ] || [ "$amtmemailfailure" = "1" ]
       then
-		    if [ "$ratelimit" = "0" ]; then
-		      rldisp="| ${CRed}RL"
-		    else
-		      rldisp="| ${CGreen}RL:$ratelimit/h"
-		    fi
-		fi
+        if [ "$ratelimit" = "0" ]; then
+          rldisp="| ${CRed}RL"
+        else
+          rldisp="| ${CGreen}RL:$ratelimit/h"
+        fi
+    fi
 
     tzone=$(date +%Z)
     tzonechars=$(echo ${#tzone})
@@ -3637,8 +3659,8 @@ while true; do
 
     #Display tailmon Update Notifications
     if [ "$UpdateNotify" != "0" ]
-    	then 
-    		echo -e "$UpdateNotify"
+      then
+        echo -e "$UpdateNotify"
     fi
 
     #Display tailmon client header
