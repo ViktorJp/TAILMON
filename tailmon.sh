@@ -7,7 +7,7 @@
 # monitor application that will sit in the background (using the -screen utility), and will restart the Tailscale service
 # should it happen to go down. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi, and @kuki68ster for all their help, input
 # and testing of this script!
-# Last Updated: 2025-Aug-02
+# Last Updated: 2025-Aug-09
 
 #Preferred standard router binaries path
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
