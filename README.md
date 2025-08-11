@@ -1,7 +1,7 @@
-# TAILMON v1.2.04b
+# TAILMON v1.2.0
 Asus-Merlin Tailscale Installer, Configurator and Monitor
 
-Updated: 2025-Aug-09
+Updated: 2025-Aug-11
 
 ---
 
