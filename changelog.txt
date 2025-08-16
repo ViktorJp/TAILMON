@@ -2,7 +2,8 @@ v1.3.0b1  - (TBA)
           - MINOR: Revamped the entire check updates/autoupdates process. Going into the "Check for Updates"
             section in the main setup / configuration menu, you now have the option to subscribe to either
             the BETA or STABLE (default) track. Once you are enrolled in either of these 2 tracks, TAILMON
-            will recommend updates and autoupdates for this specific track.
+            will only recommend updates and autoupdates for this specific track.
+          - PATCH: Fixed some minor UI changes
 
 v1.2.0    - (August 11, 2025)
           - MINOR: Added the ability to DOWNGRADE your Tailscale version to a previous version (even a Beta
