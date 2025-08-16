@@ -3799,7 +3799,7 @@ while true; do
         if [ "$ratelimit" = "0" ]; then
           rldisp="| ${CRed}RL"
         else
-          rldisp="| ${CGreen}RL:$ratelimit/h"
+          rldisp="| ${CClear}RL: ${CGreen}$ratelimit/h"
         fi
     fi
 
