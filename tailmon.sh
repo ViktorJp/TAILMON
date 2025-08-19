@@ -7,13 +7,13 @@
 # monitor application that will sit in the background (using the -screen utility), and will restart the Tailscale service
 # should it happen to go down. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi, and @kuki68ster for all their help, input
 # and testing of this script!
-# Last Updated: 2025-Aug-16
+# Last Updated: 2025-Aug-18
 
 #Preferred standard router binaries path
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.3.0b1"                                                    # Current version
+version="1.3.0b2"                                                    # Current version
 beta=0                                                               # Beta indicator on/off
 track=0                                                              # Stable/Beta Track subscription
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
@@ -3366,7 +3366,6 @@ updatecheck()
         DLversionPF=$(printf "%-8s" $DLversion)
         versionPF=$(printf "%-8s" $version)
         UpdateNotify="${InvYellow} ${InvDkGray}${CWhite} Stable Track Update available: v$versionPF -> v$DLversionPF                                                        ${CClear}"
-        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: New TAILMON v$DLversion available for download/install." >> $logfile
       else
         UpdateNotify=0
       fi
@@ -3394,7 +3393,6 @@ betacheck()
         BversionPF=$(printf "%-8s" $Bversion)
         versionPF=$(printf "%-8s" $version)
         BUpdateNotify="${InvYellow} ${InvDkGray}${CWhite} Beta Track Update available: v$versionPF -> v$BversionPF                                                          ${CClear}"
-        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: New TAILMON BETA TRACK v$Bversion available for download/install." >> $logfile
       else
         BUpdateNotify=0
       fi
@@ -3717,7 +3715,24 @@ if [ "$1" == "-noswitch" ]
 
     if [ ! -f $cfgpath ]; then
       initialsetup
+    else
+      source $config
     fi
+    
+		#Display TAILMON Update Log Notifications
+		if [ "$track" = "0" ]; then
+		  if [ "$UpdateNotify" != "0" ]
+		    then
+		      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: New TAILMON STABLE TRACK v$DLversion available for download/install." >> $logfile
+		  fi
+		fi
+		
+		if [ "$track" = "1" ]; then
+		  if [ "$BUpdateNotify" != "0" ]
+		    then
+		      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: New TAILMON BETA TRACK v$Bversion available for download/install." >> $logfile
+		  fi
+		fi
 fi
 
 # -------------------------------------------------------------------------------------------------------------------------
