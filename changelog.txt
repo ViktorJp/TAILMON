@@ -7,8 +7,7 @@ v1.3.0b3  - (TBA)
           - PATCH: Fixed some of the logging messaging as it was still recommending an upgrade to a stable
             release even if you were enrolled in the beta track.
           - PATCH: Made an emergency patch update because one of the cron job conditions was accidentally
-            calling 'tailmon -reset', which would cause a reset of the configuration of the router, requiring
-            you to possibly reinitialize your connection with Tailscale.
+            calling 'tailmon -reset', which doesn't do anything. It was supposed to run -autoupdate.
 
 v1.2.0    - (August 11, 2025)
           - MINOR: Added the ability to DOWNGRADE your Tailscale version to a previous version (even a Beta
