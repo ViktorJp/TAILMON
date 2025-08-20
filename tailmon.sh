@@ -7,13 +7,13 @@
 # monitor application that will sit in the background (using the -screen utility), and will restart the Tailscale service
 # should it happen to go down. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi, and @kuki68ster for all their help, input
 # and testing of this script!
-# Last Updated: 2025-Aug-18
+# Last Updated: 2025-Aug-19
 
 #Preferred standard router binaries path
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.3.0b2"
+version="1.3.0b3"
 beta=0                                                               # Beta indicator on/off
 track=0                                                              # Stable/Beta Track subscription
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
@@ -1431,7 +1431,7 @@ do
               sed -i -e '/tailmon.sh/d' /jffs/scripts/services-start
               cru d RunTAILMONcheck
               echo 'cru a RunTAILMONcheck "'"$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"'"' >> /jffs/scripts/services-start
-              cru a RunTAILMONcheck "$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -reset"
+              cru a RunTAILMONcheck "$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"
             fi
           else
             echo 'cru a RunTAILMONcheck "'"$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"'"' >> /jffs/scripts/services-start
