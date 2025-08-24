@@ -7,22 +7,20 @@
 # monitor application that will sit in the background (using the -screen utility), and will restart the Tailscale service
 # should it happen to go down. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi, and @kuki68ster for all their help, input
 # and testing of this script!
-# Last Updated: 2025-Aug-24
+# Last Updated: 2025-Aug-11
 
 #Preferred standard router binaries path
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.3.0"
-beta=0                                                               # Beta indicator on/off
-track=0                                                              # Stable/Beta Track subscription
+version="1.2.0"
+beta=0
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
 dlverpath="/jffs/addons/tailmon.d/version.txt"                       # Static path to the version file
-bverpath="/jffs/addons/tailmon.d/beta.txt"                           # Static path to the beta version file
 logfile="/jffs/addons/tailmon.d/tailmon.log"                         # Static path to the log
 tmemails="/jffs/addons/tailmon.d/tmemails.txt"                       # Static path to email rate limit file
-routerboot=0                                                         # Tracking router reboot notifications
+routerboot=0
 tsinstalled=0
 keepalive=0
 timerloop=60
@@ -887,10 +885,10 @@ autoupdate()
       printf "\33[2K\r"
 
       # Download the latest version file from the source repository
-      if [ "$track" = "1" ]
+      if [ "$beta" = "1" ]
         then
         printf "${CGreen}\r[Checking TAILMON BETA Version]"
-        curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/version.txt" -o "/jffs/addons/tailmon.d/beta.txt"
+        curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
       else
         printf "${CGreen}\r[Checking Official TAILMON Version]"
         curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
@@ -916,23 +914,18 @@ autoupdate()
       sleep 1
 
       # Check differences in version and download if newer official version is present
-      if [ "$track" = "1" ]; then
-        localver=$(cat "/jffs/addons/tailmon.d/localver.txt")
-        serverver=$(cat "/jffs/addons/tailmon.d/beta.txt")
-      else
-        localver=$(cat "/jffs/addons/tailmon.d/localver.txt")
-        serverver=$(cat "/jffs/addons/tailmon.d/version.txt")
-      fi
+      localver=$(cat "/jffs/addons/tailmon.d/localver.txt")
+      serverver=$(cat "/jffs/addons/tailmon.d/version.txt")
       if [ "$localver" != "$serverver" ]
         then
           printf "\33[2K\r"
 
-          if [ "$track" = "1" ]
+          if [ "$beta" = "1" ]
             then
             printf "${CGreen}\r[Downloading New TAILMON BETA v$serverver]\n"
             curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
           else
-            printf "${CGreen}\r[Downloading New TAILMON STABLE v$serverver]\n"
+            printf "${CGreen}\r[Downloading New TAILMON v$serverver]\n"
             curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
           fi
 
@@ -942,8 +935,8 @@ autoupdate()
           if [ $officialver -ne 0 ]
             then
               printf "\33[2K\r"
-              printf "${CGreen}\r[Unable to Download TAILMON...Exiting]\n"
-            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to download TAILMON -- please check your internet connection. Autoupdate exiting." >> $logfile
+              printf "${CGreen}\r[Unable to Download Official TAILMON Version...Exiting]\n"
+            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to download official TAILMON version -- please check your internet connection. Autoupdate exiting." >> $logfile
               echo -e "${CClear}"
               sendmessage 1 "Unable to reach TAILMON repository"
               sleep 1
@@ -1013,7 +1006,7 @@ autoupdate()
       if [ "$localtsver" != "$servertsver" ]
         then
           printf "\33[2K\r"
-          printf "${CGreen}\r[Downloading New Tailscale Binary v$servertsver]\n"
+          printf "${CGreen}\r[Downloading New Tailscale v$servertsver]\n"
           echo -e "${CClear}"
           sleep 1
           tailscale update -yes
@@ -1021,8 +1014,8 @@ autoupdate()
           if [ $officialtsver -ne 0 ]
             then
               printf "\33[2K\r"
-              printf "${CGreen}\r[Unable to Download Tailscale Binary...Exiting]\n"
-              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to download Tailscale Binary - please check your installation/internet connection." >> $logfile
+              printf "${CGreen}\r[Unable to Download Official Tailscale Version...Exiting]\n"
+              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unable to download official Tailscale version - please check your installation/internet connection." >> $logfile
               echo -e "${CClear}"
               sendmessage 1 "Unable to reach Tailscale repository"
               sleep 1
@@ -1030,7 +1023,7 @@ autoupdate()
               exit 1
           fi
           echo ""
-          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Successfully autoupdated Tailscale Binary from v$localtsver to v$servertsver" >> $logfile
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Successfully autoupdated Tailscale from v$localtsver to v$servertsver" >> $logfile
           sendmessage 0 "Tailscale Successfully Updated" $localtsver $servertsver
 
           # Upon a successful update, restart Tailscale services
@@ -1431,7 +1424,7 @@ do
               sed -i -e '/tailmon.sh/d' /jffs/scripts/services-start
               cru d RunTAILMONcheck
               echo 'cru a RunTAILMONcheck "'"$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"'"' >> /jffs/scripts/services-start
-              cru a RunTAILMONcheck "$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"
+              cru a RunTAILMONcheck "$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -reset"
             fi
           else
             echo 'cru a RunTAILMONcheck "'"$schedulemin $schedulehrs * * * sh /jffs/scripts/tailmon.sh -autoupdate"'"' >> /jffs/scripts/services-start
@@ -3123,223 +3116,90 @@ vconfig()
 
 vupdate()
 {
-
+  updatecheck # Check for the latest version from source repository
   while true; do
-
-    updatecheck # Check for the latest stable version from source repository
-    betacheck # Check for the latest beta version from source repository
-
-    if [ "$track" = "0" ]; then
-      trackdisp="Stable"
-    else
-      trackdisp="Beta"
-    fi
-
     clear
     echo -e "${InvGreen} ${InvDkGray}${CWhite} Update Utility                                                                        ${CClear}"
     echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear} This utility allows you to check, download and install updates from your preferred"
-    echo -e "${InvGreen} ${CClear} Beta/Stable track subscription."
-    echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear} (Default = 0 - Stable)"
+    echo -e "${InvGreen} ${CClear} This utility allows you to check, download and install updates"
     echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
-    echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear}${CWhite} Stable Track${CClear}"
-    echo -e "${InvGreen} ${CClear} Local Version:       ${CGreen}$version${CClear}"
-    echo -e "${InvGreen} ${CClear} Official Version:    ${CGreen}$DLversion${CClear}"
-    echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
-    echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear}${CWhite} Beta Track"
-    echo -e "${InvGreen} ${CClear} Local Version:       ${CGreen}$version${CClear}"
-    echo -e "${InvGreen} ${CClear} Latest Beta Version: ${CGreen}$Bversion${CClear}"
-    echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
-    echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear} Your subscribed track: ${CGreen}$trackdisp${CClear}"
-    echo -e "${InvGreen} ${CClear}"
     echo ""
-
-    if [ "$track" = "0" ]; then
-      if [ "$version" == "$DLversion" ]
+    echo -e "Current Version: ${CGreen}$version${CClear}"
+    echo -e "Updated Version: ${CGreen}$DLversion${CClear}"
+    echo ""
+    if [ "$version" == "$DLversion" ]
       then
-        echo -e "You are on the latest ${CGreen}STABLE${CClear} version! Download & Overwrite, or change Tracks?${CClear}"
-        read -p "(Stable = 0, Beta = 1, Download = y/n, e=Exit): " SelectUpdate
-        case $SelectUpdate in
-          0)
-            track=0
-            saveconfig
-            ;;
-
-          1)
-            track=1
-            saveconfig
-            ;;
-
-          [Yy])
+        echo -e "You are on the latest version! Would you like to download anyways? This will overwrite${CClear}"
+        echo -e "your local copy with the current build.${CClear}"
+        if promptyn "[y/n]: "; then
+          echo ""
+          if [ "$beta" = "1" ]
+            then
+              echo ""
+              echo -e "You are about to download a BETA version. Would you like to update to the latest${CClear}"
+              echo -e "STABLE version?"
+              if promptyn "[y/n]: "; then
+                echo ""
+                echo -e "\nDownloading TAILMON ${CGreen}STABLE${CClear}"
+                curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+              else
+                echo ""
+                echo -e "\nDownloading TAILMON ${CGreen}BETA${CClear}"
+                curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+              fi
+          else
             echo ""
-            echo -e "\nDownloading TAILMON ${CGreen}STABLE${CClear}"
+            echo -e "\nDownloading TAILMON ${CGreen}v$DLversion${CClear}"
             curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-            echo ""
-            echo -e "Download successful!${CClear}"
-            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON update successfully downloaded and installed." >> $logfile
-            echo ""
-            read -rsp $'Press any key to restart TAILMON...\n' -n1 key
-            exec /jffs/scripts/tailmon.sh -setup
-            ;;
-
-          [Nn])
-            echo ""
-            echo ""
-            echo -e "${CClear}Exiting Update Utility..."
-            sleep 1
-            return
-            ;;
-
-          [Ee])
-            echo ""
-            echo ""
-            echo -e "${CClear}Exiting Update Utility..."
-            sleep 1
-            return
-            ;;
-        esac
-
-      else
-
-        echo -e "New ${CGreen}STABLE${CClear} version available! Download & Upgrade, or change Tracks?${CClear}"
-        read -p "(Stable = 0, Beta = 1, Download = y/n, e=Exit): " SelectUpdate
-        case $SelectUpdate in
-          0)
-            track=0
-            saveconfig
-            ;;
-
-          1)
-            track=1
-            saveconfig
-            ;;
-
-          [Yy])
-            echo ""
-            echo -e "\nDownloading TAILMON ${CGreen}STABLE${CClear}"
-            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-            echo ""
-            echo -e "Download successful!${CClear}"
-            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON update successfully downloaded and installed." >> $logfile
-            echo ""
-            read -rsp $'Press any key to restart TAILMON...\n' -n1 key
-            exec /jffs/scripts/tailmon.sh -setup
-            ;;
-
-          [Nn])
-            echo ""
-            echo ""
-            echo -e "${CClear}Exiting Update Utility..."
-            sleep 1
-            return
-            ;;
-
-          [Ee])
-            echo ""
-            echo ""
-            echo -e "${CClear}Exiting Update Utility..."
-            sleep 1
-            return
-            ;;
-        esac
-
-      fi
-
-    elif [ "$track" = "1" ]; then
-
-        if [ "$version" == "$Bversion" ]; then
-          echo -e "You are on the latest ${CGreen}BETA${CClear} version! Download & Overwrite, or change Tracks?${CClear}"
-          read -p "(Stable = 0, Beta = 1, Download = y/n, e=Exit): " SelectUpdate
-          case $SelectUpdate in
-            0)
-              track=0
-              saveconfig
-              ;;
-
-            1)
-              track=1
-              saveconfig
-              ;;
-
-            [Yy])
-              echo ""
-              echo -e "\nDownloading TAILMON ${CGreen}BETA${CClear}"
-              curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-              echo ""
-              echo -e "Download successful!${CClear}"
-              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON BETA update successfully downloaded and installed." >> $logfile
-              echo ""
-              read -rsp $'Press any key to restart TAILMON...\n' -n1 key
-              exec /jffs/scripts/tailmon.sh -setup
-              ;;
-
-            [Nn])
-              echo ""
-              echo ""
-              echo -e "${CClear}Exiting Update Utility..."
-              sleep 1
-              return
-              ;;
-
-            [Ee])
-              echo ""
-              echo ""
-              echo -e "${CClear}Exiting Update Utility..."
-              sleep 1
-              return
-              ;;
-          esac
-
-
+          fi
+          echo ""
+          echo -e "Download successful!${CClear}"
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON update successfully downloaded and installed." >> $logfile
+          echo ""
+          read -rsp $'Press any key to restart TAILMON...\n' -n1 key
+          exec /jffs/scripts/tailmon.sh -setup
         else
-
-          echo -e "New ${CGreen}BETA${CClear} version available! Download & Upgrade, or change Tracks?${CClear}"
-          read -p "(Stable = 0, Beta = 1, Download = y/n, e=Exit): " SelectUpdate
-          case $SelectUpdate in
-            0)
-              track=0
-              saveconfig
-              ;;
-
-            1)
-              track=1
-              saveconfig
-              ;;
-
-            [Yy])
+          echo ""
+          echo ""
+          echo -e "Exiting Update Utility...${CClear}"
+          sleep 1
+          return
+        fi
+      else
+        echo -e "Score! There is a new version out there! Would you like to update?${CClear}"
+        if promptyn "[y/n]: "; then
+          echo ""
+          if [ "$beta" = "1" ]
+            then
               echo ""
-              echo -e "\nDownloading TAILMON ${CGreen}BETA${CClear}"
-              curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-              echo ""
-              echo -e "Download successful!${CClear}"
-              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON BETA update successfully downloaded and installed." >> $logfile
-              echo ""
-              read -rsp $'Press any key to restart TAILMON...\n' -n1 key
-              exec /jffs/scripts/tailmon.sh -setup
-              ;;
-
-            [Nn])
-              echo ""
-              echo ""
-              echo -e "${CClear}Exiting Update Utility..."
-              sleep 1
-              return
-              ;;
-
-            [Ee])
-              echo ""
-              echo ""
-              echo -e "${CClear}Exiting Update Utility..."
-              sleep 1
-              return
-              ;;
-          esac
+              echo -e "You are about to download a BETA version. Would you like to update to the latest${CClear}"
+              echo -e "STABLE version?"
+              if promptyn "[y/n]: "; then
+                echo ""
+                echo -e "\nDownloading TAILMON ${CGreen}STABLE${CClear}"
+                curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+              else
+                echo ""
+                echo -e "\nDownloading TAILMON ${CGreen}BETA${CClear}"
+                curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+              fi
+          else
+            echo ""
+            echo -e "\nDownloading TAILMON ${CGreen}v$DLversion${CClear}"
+            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+          fi
+          echo ""
+          echo -e "Download successful!${CClear}"
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON update successfully downloaded and installed." >> $logfile
+          echo ""
+          read -rsp $'Press any key to restart TAILMON...\n' -n1 key
+          exec /jffs/scripts/tailmon.sh -setup
+        else
+          echo ""
+          echo ""
+          echo -e "Exiting Update Utility...${CClear}"
+          sleep 1
+          return
         fi
     fi
   done
@@ -3350,9 +3210,13 @@ vupdate()
 
 updatecheck()
 {
-
   # Download the latest version file from the source repository
-  curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
+  if [ "$beta" = "1" ]
+    then
+      curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
+    else
+      curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/version.txt" -o "/jffs/addons/tailmon.d/version.txt"
+  fi
 
   if [ -f $dlverpath ]
     then
@@ -3360,43 +3224,25 @@ updatecheck()
       DLversion=$(cat $dlverpath)
 
       # Compare the new version with the old version and log it
-      if [ "$beta" == "1" ]; then   # Check if Dev/Beta Mode is enabled and disable notification message
-        UpdateNotify=0
-      elif [ "$DLversion" != "$version" ]; then
-        DLversionPF=$(printf "%-8s" $DLversion)
-        versionPF=$(printf "%-8s" $version)
-        UpdateNotify="${InvYellow} ${InvDkGray}${CWhite} Stable Track Update available: v$versionPF -> v$DLversionPF                                                        ${CClear}"
+      if [ "$beta" = "1" ]; then   # Check if Dev/Beta Mode is enabled and disable notification message
+        if [ "$DLversion" != "$version" ]; then
+          DLversionPF=$(printf "%-8s" $DLversion)
+          versionPF=$(printf "%-8s" $version)
+          UpdateNotify="${InvYellow} ${InvDkGray}${CWhite} Beta Update available: v$versionPF -> v$DLversionPF                                                                ${CClear}"
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: New TAILMON BETA v$DLversion available for download/install." >> $logfile
+        else
+          UpdateNotify=0
+        fi
       else
-        UpdateNotify=0
+        if [ "$DLversion" != "$version" ]; then
+          DLversionPF=$(printf "%-8s" $DLversion)
+          versionPF=$(printf "%-8s" $version)
+          UpdateNotify="${InvYellow} ${InvDkGray}${CWhite} Update available: v$versionPF -> v$DLversionPF                                                                     ${CClear}"
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: New TAILMON v$DLversion available for download/install." >> $logfile
+        else
+          UpdateNotify=0
+        fi
       fi
-  fi
-}
-
-# -------------------------------------------------------------------------------------------------------------------------
-# betacheck is a function that downloads the latest beta version file, and compares it with what's currently installed
-
-betacheck()
-{
-
-  # Download the latest version file from the source repository
-  curl --silent --retry 3 --connect-timeout 3 --max-time 6 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/version.txt" -o "/jffs/addons/tailmon.d/beta.txt"
-
-  if [ -f $bverpath ]
-    then
-      # Read in its contents for the current version file
-      Bversion=$(cat $bverpath)
-
-      # Compare the new version with the old version and log it
-      if [ "$beta" == "1" ]; then   # Check if Dev/Beta Mode is enabled and disable notification message
-        BUpdateNotify=0
-      elif [ "$Bversion" != "$version" ]; then
-        BversionPF=$(printf "%-8s" $Bversion)
-        versionPF=$(printf "%-8s" $version)
-        BUpdateNotify="${InvYellow} ${InvDkGray}${CWhite} Beta Track Update available: v$versionPF -> v$BversionPF                                                          ${CClear}"
-      else
-        BUpdateNotify=0
-      fi
-
   fi
 }
 
@@ -3528,8 +3374,7 @@ trimlogs()
 
 saveconfig()
 {
-   { echo 'track='$track
-     echo 'keepalive='$keepalive
+   { echo 'keepalive='$keepalive
      echo 'timerloop='$timerloop
      echo 'logsize='$logsize
      echo 'autostart='$autostart
@@ -3568,7 +3413,6 @@ rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
 
 # Check for updates
 updatecheck
-betacheck
 
 # Check and see if any commandline option is being used
 if [ $# -eq 0 ]
@@ -3715,23 +3559,6 @@ if [ "$1" == "-noswitch" ]
 
     if [ ! -f $cfgpath ]; then
       initialsetup
-    else
-      source $config
-    fi
-
-    #Display TAILMON Update Log Notifications
-    if [ "$track" = "0" ]; then
-      if [ "$UpdateNotify" != "0" ]
-        then
-          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: New TAILMON STABLE TRACK v$DLversion available for download/install." >> $logfile
-      fi
-    fi
-
-    if [ "$track" = "1" ]; then
-      if [ "$BUpdateNotify" != "0" ]
-        then
-          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: New TAILMON BETA TRACK v$Bversion available for download/install." >> $logfile
-      fi
     fi
 fi
 
@@ -3814,7 +3641,7 @@ while true; do
         if [ "$ratelimit" = "0" ]; then
           rldisp="| ${CRed}RL"
         else
-          rldisp="| ${CClear}RL: ${CGreen}$ratelimit/h"
+          rldisp="| ${CGreen}RL:$ratelimit/h"
         fi
     fi
 
@@ -3831,18 +3658,9 @@ while true; do
     if [ -z "$tsver" ]; then tsver="0.00"; fi
 
     #Display tailmon Update Notifications
-    if [ "$track" = "0" ]; then
-      if [ "$UpdateNotify" != "0" ]
-        then
-          echo -e "$UpdateNotify"
-      fi
-    fi
-
-    if [ "$track" = "1" ]; then
-      if [ "$BUpdateNotify" != "0" ]
-        then
-          echo -e "$BUpdateNotify"
-      fi
+    if [ "$UpdateNotify" != "0" ]
+      then
+        echo -e "$UpdateNotify"
     fi
 
     #Display tailmon client header

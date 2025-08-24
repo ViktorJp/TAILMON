@@ -2,9 +2,10 @@ TO-DO
 -----
 * Do more error/status checking on the install of tailscale entware packages, and during the startup of the service/connection... and if it errors out, present better messaging around that, and potentially stopping the script in order to do more troubleshooting.
 
-
 DONE
 ----
+* Logs are still referring to stable version upgrades available even when on beta track. Needs fixing.
+* Fix RL:10/h coloring
 * Remove RL tag if amtm email functionality is turned off completely, and show some info in the config menu on the AMTM email item.
 * Add ability for scripts beta releases to autoupdate to new beta releases (instead of stable downgrades)
 * Provide for a way to downgrade to a different Tailscale version using ColinTaylors method.

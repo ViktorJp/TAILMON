@@ -1,3 +1,14 @@
+v1.3.0    - (August 24, 2025)
+          - MINOR: Revamped the entire check updates/autoupdates process. Going into the "Check for Updates"
+            section in the main setup / configuration menu, you now have the option to subscribe to either
+            the BETA or STABLE (default) track. Once you are enrolled in either of these 2 tracks, TAILMON
+            will only recommend updates and autoupdates for this specific track.
+          - PATCH: Fixed some minor UI changes
+          - PATCH: Fixed some of the logging messaging as it was still recommending an upgrade to a stable
+            release even if you were enrolled in the beta track.
+          - PATCH: Made an emergency patch update because one of the cron job conditions was accidentally
+            calling 'tailmon -reset', which doesn't do anything. It was supposed to run -autoupdate.
+
 v1.2.0    - (August 11, 2025)
           - MINOR: Added the ability to DOWNGRADE your Tailscale version to a previous version (even a Beta
             if you so wish). This certainly is needed functionality, as the Tailscale installer does not have
