@@ -2161,26 +2161,26 @@ advroutests()
       echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
       echo  ""
       read -p "Please enter valid IP4 subnet range? (e=Exit): " routeinput
+      
+      # exit with no changes
       if [ "$routeinput" == "e" ]; then
         echo -e "\n[Exiting]"
         sleep 1
         return
+      
+      if [ -z "$routeinput" ]; then
+        routes=$(nvram get lan_ipaddr | cut -d"." -f1-3).0/24
       else
-        if [ -z "$routeinput" ]; then
-          routes=$(nvram get lan_ipaddr | cut -d"." -f1-3).0/24
-        else
-          routes=$routeinput
-        fi
-        advroutes=1
-        saveconfig
-        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Advertised routes enabled with routes=$routes." >> $logfile
+        routes=$routeinput
       fi
+      advroutes=1
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Advertised routes enabled with routes=$routes." >> $logfile
     else
       advroutes=0
       routes=""
-      saveconfig
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Advertised routes disabled." >> $logfile
   fi
+  saveconfig
   timer=$timerloop
 
   if [ $advroutes -ne $oldadvroutes ] || [ "$routes" != "$oldroutes" ]; then
