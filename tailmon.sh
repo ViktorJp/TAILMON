@@ -862,6 +862,11 @@ tsbeta()
 # setipforwarding is a function that enables or disables IP forwarding on the router
 setipforwarding()
 {
+  # Check if IPv4 forwarding is already enabled. if so, we assume this is either already set, or managed elsewhere
+  if [ -f "/proc/sys/net/ipv4/ip_forward" ] && grep -q "^1$" /proc/sys/net/ipv4/ip_forward; then
+    return
+  fi
+  
   echo 1 > /proc/sys/net/ipv4/ip_forward
   echo 1 > /proc/sys/net/ipv6/ip_forward
   if [ ! -f "/jffs/scripts/init-start" ] then
