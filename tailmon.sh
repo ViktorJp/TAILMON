@@ -7,15 +7,15 @@
 # monitor application that will sit in the background (using the -screen utility), and will restart the Tailscale service
 # should it happen to go down. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi, and @kuki68ster for all their help, input
 # and testing of this script!
-# Last Updated: 2025-Aug-24
+# Last Updated: 2025-Dec-23
 
 #Preferred standard router binaries path
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.3.0"
-beta=0                                                               # Beta indicator on/off
-track=0                                                              # Stable/Beta Track subscription
+version="1.3.1b"
+beta=1                                                               # Beta indicator on/off
+track=1                                                              # Stable (0) / Beta (1) Track subscription
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
 dlverpath="/jffs/addons/tailmon.d/version.txt"                       # Static path to the version file
@@ -856,6 +856,41 @@ tsbeta()
 
   echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale binary updated to latest BETA version." >> $logfile
   resettimer=1
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# setipforwarding is a function that enables or disables IP forwarding on the router
+setipforwarding()
+{
+  # Check if IPv4 forwarding is already enabled. if so, we assume this is either already set, or managed elsewhere
+  if [ -f "/proc/sys/net/ipv4/ip_forward" ] && grep -q "^1$" /proc/sys/net/ipv4/ip_forward; then
+    return
+  fi
+
+  echo 1 > /proc/sys/net/ipv4/ip_forward
+  echo 1 > /proc/sys/net/ipv6/ip_forward
+  if [ ! -f "/jffs/scripts/init-start" ]; then
+    echo "#!/bin/sh" > /jffs/scripts/init-start
+    chmod 755 /jffs/scripts/init-start
+  fi
+  if ! grep -q -F "echo 1 > /proc/sys/net/ipv4/ip_forward" /jffs/scripts/init-start; then
+    echo "echo 1 > /proc/sys/net/ipv4/ip_forward" >> /jffs/scripts/init-start
+  fi
+  if ! grep -q -F "echo 1 > /proc/sys/net/ipv6/ip_forward" /jffs/scripts/init-start; then
+    echo "echo 1 > /proc/sys/net/ipv6/ip_forward" >> /jffs/scripts/init-start
+  fi
+  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: IP Forwarding enabled." >> $logfile
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
+# booleantoyesno converts boolean values to yes or no for display
+booleantoyesno()
+{
+  if [ "$1" -eq 1 ]; then
+    echo "Yes"
+  else
+    echo "No"
+  fi
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -2042,7 +2077,8 @@ applycustomchanges()
 exitnodets()
 {
   clear
-  if [ $exitnode -eq 0 ]; then exitnodedisp="No"; elif [ $exitnode -eq 1 ]; then exitnodedisp="Yes"; fi
+  exitnodedisp=$(booleantoyesno $exitnode)
+  oldexitnode=$exitnode
 
   echo -e "${InvGreen} ${InvDkGray}${CWhite} Configure Router as Exit Node                                                         ${CClear}"
   echo -e "${InvGreen} ${CClear}"
@@ -2069,7 +2105,7 @@ exitnodets()
   saveconfig
   timer=$timerloop
 
-  if [ "$exitnodedisp" == "No" ] && [ $exitnode -eq 1 ]; then
+  if [ "$exitnode" -ne "$oldexitnode" ]; then
     echo ""
     echo -e "\nChanging exit node configuration options will require a restart of Tailscale. Restart now?"
     if promptyn "[y/n]: "
@@ -2080,23 +2116,7 @@ exitnodets()
 
       tsdown
       stopts
-      startts
-      tsup
-
-    fi
-  fi
-
-  if [ "$exitnodedisp" == "Yes" ] && [ $exitnode -eq 0 ]; then
-    echo ""
-    echo -e "\nChanging exit node configuration options will require a restart of Tailscale. Restart now?"
-    if promptyn "[y/n]: "
-      then
-      echo ""
-      echo -e "\n${CGreen}Restarting Tailscale Service and Connection...${CClear}"
-      echo ""
-
-      tsdown
-      stopts
+      setipforwarding
       startts
       tsup
 
@@ -2110,7 +2130,9 @@ exitnodets()
 advroutests()
 {
   clear
-  if [ $advroutes -eq 0 ]; then advroutesdisp="No"; elif [ $advroutes -eq 1 ]; then advroutesdisp="Yes"; fi
+  advroutesdisp=$(booleantoyesno $advroutes)
+  oldadvroutes=$advroutes
+  oldroutes=$routes
 
   echo -e "${InvGreen} ${InvDkGray}${CWhite} Advertise Routes on this Router                                                       ${CClear}"
   echo -e "${InvGreen} ${CClear}"
@@ -2144,30 +2166,32 @@ advroutests()
       echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
       echo  ""
       read -p "Please enter valid IP4 subnet range? (e=Exit): " routeinput
+
+      # exit with no changes
       if [ "$routeinput" == "e" ]; then
-        echo -e "\n[Exiting]"; sleep 1
-      elif [ -z "$routeinput" ]; then
-        advroutes=1
-        routes=$(nvram get lan_ipaddr | cut -d"." -f1-3).0/24
-        saveconfig
-        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Advertised routes enabled." >> $logfile
-      else
-        advroutes=1
-        routes=$routeinput
-        saveconfig
-        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Advertised routes enabled." >> $logfile
+        echo -e "\n[Exiting]"
+        sleep 1
+        return
       fi
-    else
-      advroutes=0
-      routes=""
-      saveconfig
-      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Advertised routes disabled." >> $logfile
+        
+      if [ -z "$routeinput" ]; then
+        routes=$(nvram get lan_ipaddr | cut -d"." -f1-3).0/24
+      else
+        routes=$routeinput
+      fi
+      advroutes=1
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Advertised routes enabled with routes=$routes." >> $logfile
+  else
+    advroutes=0
+    routes=""
+    echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Advertised routes disabled." >> $logfile
   fi
+  saveconfig
   timer=$timerloop
 
-  if [ "$advroutesdisp" == "No" ] && [ $advroutes -eq 1 ]; then
+  if [ "$advroutes" -ne "$oldadvroutes" ] || [ "$routes" != "$oldroutes" ]; then
     echo ""
-    echo -e "\nChanging exit node configuration options will require a restart of Tailscale. Restart now?"
+    echo -e "\nChanging advertised routes configuration options will require a restart of Tailscale. Restart now?"
     if promptyn "[y/n]: "
       then
       echo ""
@@ -2176,23 +2200,7 @@ advroutests()
 
       tsdown
       stopts
-      startts
-      tsup
-
-    fi
-  fi
-
-  if [ "$advroutesdisp" == "Yes" ] && [ $advroutes -eq 0 ]; then
-    echo ""
-    echo -e "\nChanging exit node configuration options will require a restart of Tailscale. Restart now?"
-    if promptyn "[y/n]: "
-      then
-      echo ""
-      echo -e "\n${CGreen}Restarting Tailscale Service and Connection...${CClear}"
-      echo ""
-
-      tsdown
-      stopts
+      setipforwarding
       startts
       tsup
 
@@ -2206,7 +2214,8 @@ advroutests()
 accroutests()
 {
   clear
-  if [ $accroutes -eq 0 ]; then accroutesdisp="No"; elif [ $accroutes -eq 1 ]; then accroutesdisp="Yes"; fi
+  accroutesdisp=$(booleantoyesno $accroutes)
+  oldaccroutes=$accroutes
 
   echo -e "${InvGreen} ${InvDkGray}${CWhite} Accept Site-to-Site Functionality on this Router                                      ${CClear}"
   echo -e "${InvGreen} ${CClear}"
@@ -2226,16 +2235,15 @@ accroutests()
   if promptyn "[y/n]: "
     then
       accroutes=1
-      saveconfig
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Accepted Linux routes enabled." >> $logfile
     else
       accroutes=0
-      saveconfig
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Accepted Linux routes disabled." >> $logfile
   fi
+  saveconfig
   timer=$timerloop
 
-  if [ "$accroutesdisp" == "No" ] && [ $accroutes -eq 1 ]; then
+  if [ "$accroutes" -ne "$oldaccroutes" ]; then
     echo ""
     echo -e "\nChanging routing configuration options will require a restart of Tailscale. Restart now?"
     if promptyn "[y/n]: "
@@ -2246,24 +2254,7 @@ accroutests()
 
       tsdown
       stopts
-      startts
-      tsup
-      sleep 3
-
-    fi
-  fi
-
-  if [ "$accroutesdisp" == "Yes" ] && [ $accroutes -eq 0 ]; then
-    echo ""
-    echo -e "\nChanging routing configuration options will require a restart of Tailscale. Restart now?"
-    if promptyn "[y/n]: "
-      then
-      echo ""
-      echo -e "\n${CGreen}Restarting Tailscale Service and Connection...${CClear}"
-      echo ""
-
-      tsdown
-      stopts
+      setipforwarding
       startts
       tsresetc
       tsup
