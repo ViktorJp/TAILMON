@@ -866,10 +866,10 @@ setipforwarding()
   if [ -f "/proc/sys/net/ipv4/ip_forward" ] && grep -q "^1$" /proc/sys/net/ipv4/ip_forward; then
     return
   fi
-
+  
   echo 1 > /proc/sys/net/ipv4/ip_forward
   echo 1 > /proc/sys/net/ipv6/ip_forward
-  if [ ! -f "/jffs/scripts/init-start" ]; then
+  if [ ! -f "/jffs/scripts/init-start" ] then
     echo "#!/bin/sh" > /jffs/scripts/init-start
     chmod 755 /jffs/scripts/init-start
   fi
@@ -2105,7 +2105,7 @@ exitnodets()
   saveconfig
   timer=$timerloop
 
-  if [ "$exitnode" -ne "$oldexitnode" ]; then
+  if [ $exitnode -ne $oldexitnode ]; then
     echo ""
     echo -e "\nChanging exit node configuration options will require a restart of Tailscale. Restart now?"
     if promptyn "[y/n]: "
@@ -2189,7 +2189,7 @@ advroutests()
   saveconfig
   timer=$timerloop
 
-  if [ "$advroutes" -ne "$oldadvroutes" ] || [ "$routes" != "$oldroutes" ]; then
+  if [ $advroutes -ne $oldadvroutes ] || [ "$routes" != "$oldroutes" ]; then
     echo ""
     echo -e "\nChanging advertised routes configuration options will require a restart of Tailscale. Restart now?"
     if promptyn "[y/n]: "
@@ -2243,7 +2243,7 @@ accroutests()
   saveconfig
   timer=$timerloop
 
-  if [ "$accroutes" -ne "$oldaccroutes" ]; then
+  if [ $accroutes -ne $oldaccroutes ]; then
     echo ""
     echo -e "\nChanging routing configuration options will require a restart of Tailscale. Restart now?"
     if promptyn "[y/n]: "
