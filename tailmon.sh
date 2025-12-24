@@ -1,3 +1,4 @@
+
 #!/bin/sh
 
 # TAILMON (TAILMON.SH) is an all-in-one script that is optimized to install, maintain and monitor a Tailscale service and
@@ -868,7 +869,7 @@ setipforwarding()
   fi
   
   echo 1 > /proc/sys/net/ipv4/ip_forward
-  echo 1 > /proc/sys/net/ipv6/ip_forward
+  echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
   if [ ! -f "/jffs/scripts/init-start" ]; then
     echo "#!/bin/sh" > /jffs/scripts/init-start
     chmod 755 /jffs/scripts/init-start
@@ -876,8 +877,8 @@ setipforwarding()
   if ! grep -q -F "echo 1 > /proc/sys/net/ipv4/ip_forward" /jffs/scripts/init-start; then
     echo "echo 1 > /proc/sys/net/ipv4/ip_forward" >> /jffs/scripts/init-start
   fi
-  if ! grep -q -F "echo 1 > /proc/sys/net/ipv6/ip_forward" /jffs/scripts/init-start; then
-    echo "echo 1 > /proc/sys/net/ipv6/ip_forward" >> /jffs/scripts/init-start
+  if ! grep -q -F "echo 1 > /proc/sys/net/ipv6/conf/all/forwarding" /jffs/scripts/init-start; then
+    echo "echo 1 > /proc/sys/net/ipv6/conf/all/forwarding" >> /jffs/scripts/init-start
   fi
   echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: IP Forwarding enabled." >> $logfile
 }
