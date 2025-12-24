@@ -1,4 +1,3 @@
-
 #!/bin/sh
 
 # TAILMON (TAILMON.SH) is an all-in-one script that is optimized to install, maintain and monitor a Tailscale service and
@@ -3504,13 +3503,15 @@ vlogs()
 
 trimlogs()
 {
-  if [ $logsize -gt 0 ]; then
+  if [ "$logsize" -gt 0 ]
+  then
+      currlogsize="$(wc -l "$logfile" | awk '{ print $1 }')" # Determine the number of rows in the log
 
-      currlogsize=$(wc -l $logfile | awk '{ print $1 }' ) # Determine the number of rows in the log
-
-      if [ $currlogsize -gt $logsize ] # If it's bigger than the max allowed, tail/trim it!
-        then
-          echo "$(tail -$logsize $logfile)" > $logfile
+      if [ "$currlogsize" -gt "$logsize" ] # If it's bigger than the max allowed, tail/trim it!
+      then
+          tail -"$logsize" "$logfile" > "${logfile}.tmp"
+          mv "${logfile}.tmp" "$logfile"
+          echo "$(date +'%b %d %Y %X') $(_GetLAN_HostName_) VPNMON-R3[$$] - INFO: Trimmed the log file down to $logsize lines" >> "$logfile"
       fi
   fi
 }
@@ -3840,7 +3841,7 @@ while true; do
     #Display tailmon client header
     echo -en "${InvGreen} ${InvDkGray} TAILMON - v"
     printf "%-8s" $version
-    echo -e "                           ${CWhite}Operations Menu ${InvDkGray}            $tzspaces$(date) ${CClear}"
+    echo -e "                     ${CWhite}Operations Menu ${InvDkGray}           $tzspaces$(date +"%a %b %d, %Y %H:%M:%S %Z %z") ${CClear}"
     echo -e "${InvGreen} ${CClear} ${CGreen}(R)${CClear}e-${CGreen}(S)${CClear}tart / S${CGreen}(T)${CClear}op Tailscale Service              ${InvGreen} ${CClear} ${CGreen}(C)${CClear}onfiguration Menu / Main Setup Menu $rldisp${CClear}"
     echo -e "${InvGreen} ${CClear} Tailscale Connection ${CGreen}(U)${CClear}p / ${CGreen}(D)${CClear}own                   ${InvGreen} ${CClear} ${CGreen}(L)${CClear}og Viewer / Trim Log Size (rows): ${CGreen}$logsize${CClear}"
 
