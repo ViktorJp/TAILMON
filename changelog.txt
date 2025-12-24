@@ -8,6 +8,10 @@ v1.3.1b1  - (TBA)
             enabled, and this code would not interfere with that. Another interesting note is that @rangermix
             believes this behavior stems from routers being configured in a "repeater mode", and may have
             these settings turned off by default.
+          - PATCH: Changed the date/time to include the offset alongside the timezone. This is to give more
+            visibility for those who aren't assigned a standard timezone name, and in some cases would fall
+            back to using "GMT". Thanks to @Tarek Yag for reporting this, and for @EmeraldDeer providing a
+            deep dive into the date command options.
 
 v1.3.0    - (August 24, 2025)
           - MINOR: Revamped the entire check updates/autoupdates process. Going into the "Check for Updates"
