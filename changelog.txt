@@ -2,8 +2,12 @@ v1.3.1b1  - (TBA)
           - MINOR: Thanks to a contribution from @rangermix, the capability of forcing the router to use IP
             Forwarding if it is disabled has been added. His addition will check for the existence of the
             /proc/sys/net/ipv4/ip_forward (and ipv6) files, and checking they are both set to "1" before
-            enabling this functionality. Apparently this has been a hang-up for several folks now, and this
-            seems to be the fix. For others (like me), this setting was already enabled.
+            enabling this functionality by adding some statements to your init-start file. So this may
+            require a reboot before it will work completely. Apparently this has been a hang-up for several
+            folks now, and this seems to be a working fix. For others (like me), this setting was already
+            enabled, and this code would not interfere with that. Another interesting note is that @rangermix
+            believes this behavior stems from routers being configured in a "repeater mode", and may have
+            these settings turned off by default.
 
 v1.3.0    - (August 24, 2025)
           - MINOR: Revamped the entire check updates/autoupdates process. Going into the "Check for Updates"
