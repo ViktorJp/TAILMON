@@ -13,7 +13,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.3.1b"
+version="1.3.1b1"
 beta=1                                                               # Beta indicator on/off
 track=1                                                              # Stable (0) / Beta (1) Track subscription
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
