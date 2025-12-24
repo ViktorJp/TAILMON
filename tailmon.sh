@@ -7,15 +7,15 @@
 # monitor application that will sit in the background (using the -screen utility), and will restart the Tailscale service
 # should it happen to go down. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi, and @kuki68ster for all their help, input
 # and testing of this script!
-# Last Updated: 2025-Aug-24
+# Last Updated: 2025-Dec-23
 
 #Preferred standard router binaries path
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
 
 #Static Variables - please do not change
-version="1.3.0"
-beta=0                                                               # Beta indicator on/off
-track=0                                                              # Stable/Beta Track subscription
+version="1.3.1b1"
+beta=1                                                               # Beta indicator on/off
+track=1                                                              # Stable (0) / Beta (1) Track subscription
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
 dlverpath="/jffs/addons/tailmon.d/version.txt"                       # Static path to the version file
@@ -2166,13 +2166,14 @@ advroutests()
       echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
       echo  ""
       read -p "Please enter valid IP4 subnet range? (e=Exit): " routeinput
-      
+
       # exit with no changes
       if [ "$routeinput" == "e" ]; then
         echo -e "\n[Exiting]"
         sleep 1
         return
-      
+      fi
+        
       if [ -z "$routeinput" ]; then
         routes=$(nvram get lan_ipaddr | cut -d"." -f1-3).0/24
       else
@@ -2180,10 +2181,10 @@ advroutests()
       fi
       advroutes=1
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Advertised routes enabled with routes=$routes." >> $logfile
-    else
-      advroutes=0
-      routes=""
-      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Advertised routes disabled." >> $logfile
+  else
+    advroutes=0
+    routes=""
+    echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Advertised routes disabled." >> $logfile
   fi
   saveconfig
   timer=$timerloop
