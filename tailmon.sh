@@ -869,7 +869,7 @@ setipforwarding()
   
   echo 1 > /proc/sys/net/ipv4/ip_forward
   echo 1 > /proc/sys/net/ipv6/ip_forward
-  if [ ! -f "/jffs/scripts/init-start" ] then
+  if [ ! -f "/jffs/scripts/init-start" ]; then
     echo "#!/bin/sh" > /jffs/scripts/init-start
     chmod 755 /jffs/scripts/init-start
   fi
