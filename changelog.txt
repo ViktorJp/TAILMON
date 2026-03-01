@@ -1,4 +1,4 @@
-v1.3.1b1  - (TBA)
+v1.3.1    - (March 1, 2026)
           - MINOR: Thanks to a contribution from @rangermix, the capability of forcing the router to use IP
             Forwarding if it is disabled has been added. His addition will check for the existence of the
             /proc/sys/net/ipv4/ip_forward (and ipv6) files, and checking they are both set to "1" before
