@@ -7,20 +7,13 @@
 # monitor application that will sit in the background (using the -screen utility), and will restart the Tailscale service
 # should it happen to go down. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi, and @kuki68ster for all their help, input
 # and testing of this script!
-# Last Updated: 2026-Apr-16
+# Last Updated: 2026-Mar-1
 
 #Preferred standard router binaries path
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
-unset LD_LIBRARY_PATH
-
-##-------------------------------------##
-## Added by Martinski W. [2026-Apr-13] ##
-##-------------------------------------##
-[ "$HOME" != "/root" ] && export HOME="/root"
-export SCREENDIR="${HOME}/.screen"
 
 #Static Variables - please do not change
-version="1.3.2"
+version="1.3.1"
 beta=0                                                               # Beta indicator on/off
 track=0                                                              # Stable (0) / Beta (1) Track subscription
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
@@ -83,9 +76,6 @@ InvCyan="\e[1;46m"
 CWhite="\e[1;37m"
 InvWhite="\e[1;107m"
 CClear="\e[0m"
-
-# To support automatic script updates from AMTM #
-doScriptUpdateFromAMTM=true
 
 # -------------------------------------------------------------------------------------------------------------------------
 # FUNCTIONS BEGIN
@@ -193,35 +183,6 @@ spinner()
   printf "\r"
 }
 
-##-------------------------------------------##
-## Borrwed from ExtremeFiretop [2026-Apr-11] ##
-##-------------------------------------------##
-ScriptUpdateFromAMTM()
-{
-    if ! "$doScriptUpdateFromAMTM"
-    then
-        printf "Automatic script updates via AMTM are currently disabled.\n\n"
-        return 1
-    fi
-
-    if [ $# -gt 0 ] && [ "$1" = "check" ]
-    then return 0
-    fi
-
-    # Force a BACKUPMON download and update
-    echo -e "${CClear}[i] Force Downloading TAILMON... Please stand by..."
-    curl --silent --retry 3 "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-
-    DLsuccess=$?
-    if [ "$DLsuccess" -eq 0 ]; then
-      echo -e "${CClear}[i] TAILMON Download/Update Success."
-    else
-      echo -e "${CClear}[X] TAILMON Download/Update Failed."
-    fi
-
-    return "$DLsuccess"
-}
-
 # -------------------------------------------------------------------------------------------------------------------------
 # Preparebar and Progressbar is a script that provides a nice progressbar to show script activity
 
@@ -258,8 +219,7 @@ progressbaroverride()
   fi
 
   # Borrowed this wonderful keypress capturing mechanism from @Eibgrad... thank you! :)
-  #key_press=''; read -rsn1 -t 1 key_press < "$(tty 0>&2)"
-  key_press=''; read -rsn1 -t 1 key_press < "$(tty 0>&2 2>/dev/null || echo /dev/null)"
+  key_press=''; read -rsn1 -t 1 key_press < "$(tty 0>&2)"
 
   if [ $key_press ]; then
       case $key_press in
@@ -309,8 +269,7 @@ progressbarpause()
   fi
 
   # Borrowed this wonderful keypress capturing mechanism from @Eibgrad... thank you! :)
-  #key_press=''; read -rsn1 -t 1 key_press < "$(tty 0>&2)"
-  key_press=''; read -rsn1 -t 1 key_press < "$(tty 0>&2 2>/dev/null || echo /dev/null)"
+  key_press=''; read -rsn1 -t 1 key_press < "$(tty 0>&2)"
 
   if [ $key_press ]
   then
@@ -3604,13 +3563,6 @@ rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
 updatecheck
 betacheck
 
-if [ "$1" = "amtmupdate" ]
-then
-    shift
-    ScriptUpdateFromAMTM "$@"
-    exit "$?"
-fi
-
 # Check and see if any commandline option is being used
 if [ $# -eq 0 ]
   then
@@ -3708,14 +3660,14 @@ fi
 # Check to see if the screen option is being called and run operations normally using the screen utility
 if [ "$1" == "-screen" ]
   then
-    /opt/sbin/screen -wipe >/dev/null 2>&1 # Kill any dead screen sessions
+    screen -wipe >/dev/null 2>&1 # Kill any dead screen sessions
     sleep 1
-    ScreenSess=$(/opt/sbin/screen -ls | grep "tailmon" | awk '{print $1}' | cut -d . -f 1)
+    ScreenSess=$(screen -ls | grep "tailmon" | awk '{print $1}' | cut -d . -f 1)
       if [ -z $ScreenSess ]; then
         if [ "$bypassscreentimer" == "1" ]; then
-          /opt/sbin/screen -dmS "tailmon" $apppath -noswitch
+          screen -dmS "tailmon" $apppath -noswitch
           sleep 1
-          /opt/sbin/screen -r tailmon
+          screen -r tailmon
         else
           clear
           echo -e "${CClear}Executing ${CGreen}TAILMON v$version${CClear} using the SCREEN utility..."
@@ -3724,9 +3676,9 @@ if [ "$1" == "-screen" ]
           echo -e "${CClear}In order to keep TAILMON running in the background,"
           echo -e "${CClear}properly exit the SCREEN session by using: ${CGreen}CTRL-A + D${CClear}"
           echo ""
-          /opt/sbin/screen -dmS "tailmon" $apppath -noswitch
+          screen -dmS "tailmon" $apppath -noswitch
           sleep 5
-          /opt/sbin/screen -r tailmon
+          screen -r tailmon
           exit 0
         fi
       else
@@ -3745,7 +3697,7 @@ if [ "$1" == "-screen" ]
           spinner 5
         fi
       fi
-    /opt/sbin/screen -dr $ScreenSess
+    screen -dr $ScreenSess
     exit 0
 fi
 

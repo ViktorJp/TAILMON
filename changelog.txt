@@ -1,3 +1,16 @@
+v1.3.2    - (April 16, 2026)    
+          - MINOR: Diving into why the new version of SCREEN (v5.0.1) didn't want to start from a script
+            in the post-mount, found that some SCREEN environment variables weren't being set. Thanks to
+            some input from @Martinski, these variables can be included in the script, instead of adding
+            these to the top of the post-mount.
+          - PATCH: Added "unset LD_LIBRARY_PATH" statement due to the latest Entware binaries using the
+            RUNPATH embedded library search path mechanism instead of the previous RPATH method. RUNPATH is
+            searched *AFTER* the LD_LIBRARY_PATH definitions, whereas RPATH has higher priority than the
+            LD_LIBRARY_PATH environment variable, so it's searched FIRST. Thanks to @Martinski for his
+            advice.
+          - PATCH: Made TAILMON compliant with the amtmupdate functionality to allow for autoupdates
+            through AMTM.
+
 v1.3.1    - (March 1, 2026)
           - MINOR: Thanks to a contribution from @rangermix, the capability of forcing the router to use IP
             Forwarding if it is disabled has been added. His addition will check for the existence of the
