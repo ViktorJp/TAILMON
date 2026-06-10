@@ -7,7 +7,7 @@
 # monitor application that will sit in the background (using the -screen utility), and will restart the Tailscale service
 # should it happen to go down. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi, and @kuki68ster for all their help, input
 # and testing of this script!
-# Last Updated: 2026-Jun-10
+# Last Updated: 2026-Apr-16
 
 #Preferred standard router binaries path
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
@@ -20,7 +20,7 @@ unset LD_LIBRARY_PATH
 export SCREENDIR="${HOME}/.screen"
 
 #Static Variables - please do not change
-version="1.3.3"
+version="1.3.2"
 beta=0                                                               # Beta indicator on/off
 track=0                                                              # Stable (0) / Beta (1) Track subscription
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
@@ -3754,7 +3754,7 @@ if [ "$1" == "-noswitch" ]
   then
     clear #last switch before the main program starts
 
-    if [ ! -f $config ]; then
+    if [ ! -f $cfgpath ]; then
       initialsetup
     else
       source $config
