@@ -1,3 +1,8 @@
+v1.3.3    - (June 10, 2026)
+          - PATCH: Determined that in certain situations, the config file could not be found due to the
+            script using an invalid variable to call the config file. Fixed, and many thanks to @buis for
+            the bug report, and @jksmurf for the stellar support! 
+
 v1.3.2    - (April 16, 2026)    
           - MINOR: Diving into why the new version of SCREEN (v5.0.1) didn't want to start from a script
             in the post-mount, found that some SCREEN environment variables weren't being set. Thanks to
