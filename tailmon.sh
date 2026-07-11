@@ -46,6 +46,7 @@ ratelimit=0                                                          # Rate limi
 exitnode=0
 advroutes=1
 accroutes=0
+sshenable=0
 persistentsettings=0
 tsoperatingmode="Userspace"
 precmd=""
@@ -462,9 +463,10 @@ expressinstall()
   echo -e "to your tailnet (Tailscale Network)${CClear}"
   echo ""
   advroutescmd="--advertise-routes=$routes"
-  echo -e "${CGreen}Executing: tailscale up $advroutescmd${CClear}"
+  if [ $sshenable -eq 1 ]; then sshcmd=" --ssh"; else sshcmd=""; fi
+  echo -e "${CGreen}Executing: tailscale up $advroutescmd$sshcmd${CClear}"
   echo ""
-  tailscale up $advroutescmd
+  tailscale up $advroutescmd$sshcmd
   echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection started." >> $logfile
 
   echo ""
@@ -775,6 +777,7 @@ tsup()
       if [ $exitnode -eq 1 ]; then exitnodecmd="--advertise-exit-node "; else exitnodecmd=""; fi
       if [ $advroutes -eq 1 ]; then advroutescmd="--advertise-routes=$routes "; else advroutescmd=""; fi
       if [ $accroutes -eq 1 ]; then accroutescmd="--accept-routes"; else accroutescmd=""; fi
+      if [ $sshenable -eq 1 ]; then sshcmd=" --ssh"; else sshcmd=""; fi
 
       echo -e "${CGreen}Messages:${CClear}"
       echo ""
@@ -799,9 +802,9 @@ tsup()
             printf "\33[2K\r"
         fi
       else
-        echo "Executing: tailscale up $exitnodecmd$advroutescmd$accroutescmd"
+        echo "Executing: tailscale up $exitnodecmd$advroutescmd$accroutescmd$sshcmd"
         echo ""
-        tailscale up $exitnodecmd$advroutescmd$accroutescmd
+        tailscale up $exitnodecmd$advroutescmd$accroutescmd$sshcmd
         tsstat=$?
         if [ "$tsstat" -ne 0 ];
           then
@@ -2306,6 +2309,62 @@ accroutests()
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
+# sshts provides a menu interface to toggle the Tailscale SSH server (--ssh) on this router
+
+sshts()
+{
+  clear
+  sshenabledisp=$(booleantoyesno $sshenable)
+  oldsshenable=$sshenable
+
+  echo -e "${InvGreen} ${InvDkGray}${CWhite} Enable Tailscale SSH Server on this Router                                            ${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} Enabling this option adds the ${CGreen}--ssh${CClear} flag to the 'tailscale up' command, allowing"
+  echo -e "${InvGreen} ${CClear} you to SSH into this router from other devices on your tailnet using Tailscale-managed"
+  echo -e "${InvGreen} ${CClear} identity (subject to your tailnet ACLs). Because --ssh is a non-default setting, it must"
+  echo -e "${InvGreen} ${CClear} be present on every 'tailscale up' that TAILMON issues, otherwise Tailscale refuses the"
+  echo -e "${InvGreen} ${CClear} command and the connection fails. Enabling this toggle makes TAILMON include it every"
+  echo -e "${InvGreen} ${CClear} time. Please indicate 'y' or 'n' below."
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} (Default = No)"
+  echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
+  echo -e "${InvGreen} ${CClear}"
+  echo -e "${InvGreen} ${CClear} Current: ${CGreen}$sshenabledisp${CClear}"
+  echo ""
+  echo -e "Enable Tailscale SSH?"
+  if promptyn "[y/n]: "
+    then
+      sshenable=1
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale SSH enabled." >> $logfile
+    else
+      sshenable=0
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale SSH disabled." >> $logfile
+  fi
+  saveconfig
+  timer=$timerloop
+
+  if [ $sshenable -ne $oldsshenable ]; then
+    echo ""
+    echo -e "\nChanging the SSH setting will require a restart of Tailscale. Restart now?"
+    if promptyn "[y/n]: "
+      then
+      echo ""
+      echo -e "\n${CGreen}Restarting Tailscale Service and Connection...${CClear}"
+      echo ""
+
+      tsdown
+      stopts
+      setipforwarding
+      startts
+      tsresetc
+      tsup
+      sleep 3
+
+    fi
+  fi
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
 # amtmevents lets you pick success or failure amtm email notification selections
 
 amtmevents()
@@ -2838,6 +2897,7 @@ vsetup()
     if [ $exitnode -eq 0 ]; then exitnodedisp="No"; elif [ $exitnode -eq 1 ]; then exitnodedisp="Yes"; fi
     if [ $advroutes -eq 0 ]; then advroutesdisp="No"; elif [ $advroutes -eq 1 ]; then advroutesdisp="Yes ($routes)"; fi
     if [ $accroutes -eq 0 ]; then accroutesdisp="No"; elif [ $accroutes -eq 1 ]; then accroutesdisp="Yes"; fi
+    if [ $sshenable -eq 0 ]; then sshenabledisp="No"; elif [ $sshenable -eq 1 ]; then sshenabledisp="Yes"; fi
     tsver=$(tailscale version | awk 'NR==1 {print $1}') >/dev/null 2>&1
     if [ -z "$tsver" ]; then tsver="0.00"; fi
 
@@ -2878,10 +2938,12 @@ vsetup()
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 4)${CClear}${CDkGray} : Configure this Router as Exit Node           : $exitnodedisp${CClear}"
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 5)${CClear}${CDkGray} : Advertise Routes on this router              : $advroutesdisp${CClear}"
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 6)${CClear}${CDkGray} : Enable Site-to-Site functionality on router  : $accroutesdisp${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( H)${CClear}${CDkGray} : Enable Tailscale SSH server                  : $sshenabledisp${CClear}"
     else
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 4)${CClear} : Configure this Router as Exit Node           : ${CGreen}$exitnodedisp${CClear}"
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 5)${CClear} : Advertise Routes on this router              : ${CGreen}$advroutesdisp${CClear}"
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 6)${CClear} : Enable Site-to-Site functionality on router  : ${CGreen}$accroutesdisp${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( H)${CClear} : Enable Tailscale SS${CGreen}(H)${CClear} server                  : ${CGreen}$sshenabledisp${CClear}"
     fi
     echo -e "${InvGreen} ${CClear}"
     echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
@@ -2902,7 +2964,7 @@ vsetup()
       if [ "$tsoperatingmode" == "Custom" ]; then
         read -p "Please select? (1-10, R/S/T/U/D/P/B/F/I/O/L/M, e=Exit): " SelectSlot
       else
-        read -p "Please select? (1-10, R/S/T/U/D/P/B/F/I/L/M, e=Exit): " SelectSlot
+        read -p "Please select? (1-10, R/S/T/U/D/P/B/F/I/H/L/M, e=Exit): " SelectSlot
       fi
     else
       read -p "Please select? (1-10, L/M, e=Exit): " SelectSlot
@@ -2952,6 +3014,10 @@ vsetup()
         6) if [ "$tsoperatingmode" != "Custom" ]; then
              if [ -f "/opt/bin/tailscale" ]; then accroutests; fi
            fi ;;
+
+        [Hh]) if [ "$tsoperatingmode" != "Custom" ]; then
+                if [ -f "/opt/bin/tailscale" ]; then sshts; fi
+              fi ;;
 
         7) installdependencies;;
 
@@ -3580,6 +3646,7 @@ saveconfig()
      echo 'exitnode='$exitnode
      echo 'advroutes='$advroutes
      echo 'accroutes='$accroutes
+     echo 'sshenable='$sshenable
      echo 'precmd="'"$precmd"'"'
      echo 'args="'"$args"'"'
      echo 'preargs="'"$preargs"'"'
@@ -3938,7 +4005,8 @@ while true; do
       if [ $exitnode -eq 1 ]; then exitnodecmd="--advertise-exit-node "; else exitnodecmd=""; fi
       if [ $advroutes -eq 1 ]; then advroutescmd="--advertise-routes=$routes "; else advroutescmd=""; fi
       if [ $accroutes -eq 1 ]; then accroutescmd="--accept-routes"; else accroutescmd=""; fi
-      echo -e "${CWhite}${CGreen}$exitnodecmd$advroutescmd$accroutescmd${CClear}"
+      if [ $sshenable -eq 1 ]; then sshcmd=" --ssh"; else sshcmd=""; fi
+      echo -e "${CWhite}${CGreen}$exitnodecmd$advroutescmd$accroutescmd$sshcmd${CClear}"
     fi
     echo ""
     #read -rsp $'Press any key to continue...\n' -n1 key
