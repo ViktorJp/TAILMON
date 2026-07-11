@@ -1,3 +1,17 @@
+v1.3.4    - (July 11, 2026)
+          - PATCH: Huge thanks to @nuTTeLLo for his contribution to TAILMON to add an explicit feature
+            under the setup menu to enable the --ssh flag. Per his description: Adds an "Enable Tailscale
+            SSH server" toggle (option 7) to the main configuration menu, sitting alongside the existing
+            Exit Node / Advertise Routes / Site-to-Site toggles. When enabled, TAILMON appends --ssh to the
+            tailscale up command. Why: There was previously no way to run tailscale up --ssh through
+            TAILMON. This matters because --ssh is a non-default preference: once it's enabled out-of-band
+            (e.g. from the Tailscale admin console, or a manual tailscale up --ssh), Tailscale then rejects
+            any subsequent tailscale up that doesn't also mention it. Because TAILMON builds its up command
+            purely from the toggles (which had no SSH concept), every connection attempt failed, the monitor
+            kept retrying, and on JFFS-based setups this filled the log partition. This toggle makes
+            TAILMON include --ssh consistently so the setting and the up command stay in sync.
+          - PATCH: Minor tweaks and bug fixes.
+
 v1.3.3    - (June 10, 2026)
           - PATCH: Determined that in certain situations, the config file could not be found due to the
             script using an invalid variable to call the config file. Fixed, and many thanks to @buis for
