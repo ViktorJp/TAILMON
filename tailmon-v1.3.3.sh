@@ -7,7 +7,7 @@
 # monitor application that will sit in the background (using the -screen utility), and will restart the Tailscale service
 # should it happen to go down. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi, and @kuki68ster for all their help, input
 # and testing of this script!
-# Last Updated: 2026-Jul-12
+# Last Updated: 2026-Jun-10
 
 #Preferred standard router binaries path
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
@@ -20,7 +20,7 @@ unset LD_LIBRARY_PATH
 export SCREENDIR="${HOME}/.screen"
 
 #Static Variables - please do not change
-version="1.3.4"
+version="1.3.3"
 beta=0                                                               # Beta indicator on/off
 track=0                                                              # Stable (0) / Beta (1) Track subscription
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
@@ -46,7 +46,6 @@ ratelimit=0                                                          # Rate limi
 exitnode=0
 advroutes=1
 accroutes=0
-sshenable=0
 persistentsettings=0
 tsoperatingmode="Userspace"
 precmd=""
@@ -209,17 +208,15 @@ ScriptUpdateFromAMTM()
     then return 0
     fi
 
-    # Force a TAILMON download and update
-    echo ""
-    echo -e "${InvGreen} ${CClear} Downloading latest ${CGreen}TAILMON${CClear}... Please stand by while we add even more Tailscale goodness..."
+    # Force a BACKUPMON download and update
+    echo -e "${CClear}[i] Force Downloading TAILMON... Please stand by..."
     curl --silent --retry 3 "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+
     DLsuccess=$?
     if [ "$DLsuccess" -eq 0 ]; then
-      echo -e "${InvGreen} ${CClear} TAILMON Download/Update Success."
-      echo ""
+      echo -e "${CClear}[i] TAILMON Download/Update Success."
     else
-      echo -e "${InvRed} ${CClear} TAILMON Download/Update Failed. Please check all the things."
-      echo ""
+      echo -e "${CClear}[X] TAILMON Download/Update Failed."
     fi
 
     return "$DLsuccess"
@@ -465,10 +462,9 @@ expressinstall()
   echo -e "to your tailnet (Tailscale Network)${CClear}"
   echo ""
   advroutescmd="--advertise-routes=$routes"
-  if [ $sshenable -eq 1 ]; then sshcmd=" --ssh"; else sshcmd=""; fi
-  echo -e "${CGreen}Executing: tailscale up $advroutescmd$sshcmd${CClear}"
+  echo -e "${CGreen}Executing: tailscale up $advroutescmd${CClear}"
   echo ""
-  tailscale up $advroutescmd$sshcmd
+  tailscale up $advroutescmd
   echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection started." >> $logfile
 
   echo ""
@@ -778,8 +774,7 @@ tsup()
 
       if [ $exitnode -eq 1 ]; then exitnodecmd="--advertise-exit-node "; else exitnodecmd=""; fi
       if [ $advroutes -eq 1 ]; then advroutescmd="--advertise-routes=$routes "; else advroutescmd=""; fi
-      if [ $accroutes -eq 1 ]; then accroutescmd="--accept-routes "; else accroutescmd=""; fi
-      if [ $sshenable -eq 1 ]; then sshcmd="--ssh"; else sshcmd=""; fi
+      if [ $accroutes -eq 1 ]; then accroutescmd="--accept-routes"; else accroutescmd=""; fi
 
       echo -e "${CGreen}Messages:${CClear}"
       echo ""
@@ -804,9 +799,9 @@ tsup()
             printf "\33[2K\r"
         fi
       else
-        echo "Executing: tailscale up $exitnodecmd$advroutescmd$accroutescmd$sshcmd"
+        echo "Executing: tailscale up $exitnodecmd$advroutescmd$accroutescmd"
         echo ""
-        tailscale up $exitnodecmd$advroutescmd$accroutescmd$sshcmd
+        tailscale up $exitnodecmd$advroutescmd$accroutescmd
         tsstat=$?
         if [ "$tsstat" -ne 0 ];
           then
@@ -2311,62 +2306,6 @@ accroutests()
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
-# sshts provides a menu interface to toggle the Tailscale SSH server (--ssh) on this router
-
-sshts()
-{
-  clear
-  sshenabledisp=$(booleantoyesno $sshenable)
-  oldsshenable=$sshenable
-
-  echo -e "${InvGreen} ${InvDkGray}${CWhite} Enable Tailscale SSH Server on this Router                                            ${CClear}"
-  echo -e "${InvGreen} ${CClear}"
-  echo -e "${InvGreen} ${CClear} Enabling this option adds the ${CGreen}--ssh${CClear} flag to the 'tailscale up' command, allowing"
-  echo -e "${InvGreen} ${CClear} you to SSH into this router from other devices on your tailnet using your Tailscale-"
-  echo -e "${InvGreen} ${CClear} managed identity (subject to your tailnet ACLs). Because --ssh is a non-default"
-  echo -e "${InvGreen} ${CClear} setting, it must be present on every 'tailscale up' that TAILMON issues, otherwise"
-  echo -e "${InvGreen} ${CClear} Tailscale refuses the command and the connection fails. Enabling this toggle makes"
-  echo -e "${InvGreen} ${CClear} TAILMON include it every time. Please indicate 'y' or 'n' below."
-  echo -e "${InvGreen} ${CClear}"
-  echo -e "${InvGreen} ${CClear} (Default = No)"
-  echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
-  echo -e "${InvGreen} ${CClear}"
-  echo -e "${InvGreen} ${CClear} Current: ${CGreen}$sshenabledisp${CClear}"
-  echo ""
-  echo -e "Enable Tailscale SSH?"
-  if promptyn "[y/n]: "
-    then
-      sshenable=1
-      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale SSH enabled." >> $logfile
-    else
-      sshenable=0
-      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale SSH disabled." >> $logfile
-  fi
-  saveconfig
-  timer=$timerloop
-
-  if [ $sshenable -ne $oldsshenable ]; then
-    echo ""
-    echo -e "\nChanging the SSH setting will require a restart of Tailscale. Restart now?"
-    if promptyn "[y/n]: "
-      then
-      echo ""
-      echo -e "\n${CGreen}Restarting Tailscale Service and Connection...${CClear}"
-      echo ""
-
-      tsdown
-      stopts
-      setipforwarding
-      startts
-      tsresetc
-      tsup
-      sleep 3
-
-    fi
-  fi
-}
-
-# -------------------------------------------------------------------------------------------------------------------------
 # amtmevents lets you pick success or failure amtm email notification selections
 
 amtmevents()
@@ -2899,7 +2838,6 @@ vsetup()
     if [ $exitnode -eq 0 ]; then exitnodedisp="No"; elif [ $exitnode -eq 1 ]; then exitnodedisp="Yes"; fi
     if [ $advroutes -eq 0 ]; then advroutesdisp="No"; elif [ $advroutes -eq 1 ]; then advroutesdisp="Yes ($routes)"; fi
     if [ $accroutes -eq 0 ]; then accroutesdisp="No"; elif [ $accroutes -eq 1 ]; then accroutesdisp="Yes"; fi
-    if [ $sshenable -eq 0 ]; then sshenabledisp="No"; elif [ $sshenable -eq 1 ]; then sshenabledisp="Yes"; fi
     tsver=$(tailscale version | awk 'NR==1 {print $1}') >/dev/null 2>&1
     if [ -z "$tsver" ]; then tsver="0.00"; fi
 
@@ -2940,20 +2878,18 @@ vsetup()
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 4)${CClear}${CDkGray} : Configure this Router as Exit Node           : $exitnodedisp${CClear}"
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 5)${CClear}${CDkGray} : Advertise Routes on this router              : $advroutesdisp${CClear}"
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 6)${CClear}${CDkGray} : Enable Site-to-Site functionality on router  : $accroutesdisp${CClear}"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 7)${CClear}${CDkGray} : Enable Tailscale SSH server                  : $sshenabledisp${CClear}"
     else
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 4)${CClear} : Configure this Router as Exit Node           : ${CGreen}$exitnodedisp${CClear}"
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 5)${CClear} : Advertise Routes on this router              : ${CGreen}$advroutesdisp${CClear}"
       echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 6)${CClear} : Enable Site-to-Site functionality on router  : ${CGreen}$accroutesdisp${CClear}"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 7)${CClear} : Enable Tailscale SSH server                  : ${CGreen}$sshenabledisp${CClear}"
     fi
     echo -e "${InvGreen} ${CClear}"
     echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
     echo -e "${InvGreen} ${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 8)${CClear} : Custom configuration options for TAILMON${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 9)${CClear} : Force reinstall Entware dependencies${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(10)${CClear} : Check for latest updates${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(11)${CClear} : Uninstall TAILMON${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 7)${CClear} : Custom configuration options for TAILMON${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 8)${CClear} : Force reinstall Entware dependencies${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( 9)${CClear} : Check for latest updates${CClear}"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(10)${CClear} : Uninstall TAILMON${CClear}"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  | ${CClear}"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( L)${CClear} : Launch TAILMON in Monitoring Mode (${CGreen}sh /jffs/scripts/tailmon.sh${CClear})"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( M)${CClear} : Launch TAILMON in Monitoring Mode using SCREEN (${CGreen}sh /jf..ts/tailmon.sh -screen${CClear})"
@@ -2964,12 +2900,12 @@ vsetup()
     echo ""
     if [ "$tsinstalleddisp" == "Installed" ]; then
       if [ "$tsoperatingmode" == "Custom" ]; then
-        read -p "Please select? (1-11, R/S/T/U/D/P/B/F/I/O/L/M, e=Exit): " SelectSlot
+        read -p "Please select? (1-10, R/S/T/U/D/P/B/F/I/O/L/M, e=Exit): " SelectSlot
       else
-        read -p "Please select? (1-11, R/S/T/U/D/P/B/F/I/L/M, e=Exit): " SelectSlot
+        read -p "Please select? (1-10, R/S/T/U/D/P/B/F/I/L/M, e=Exit): " SelectSlot
       fi
     else
-      read -p "Please select? (1-11, L/M, e=Exit): " SelectSlot
+      read -p "Please select? (1-10, L/M, e=Exit): " SelectSlot
     fi
       case $SelectSlot in
 
@@ -3017,17 +2953,13 @@ vsetup()
              if [ -f "/opt/bin/tailscale" ]; then accroutests; fi
            fi ;;
 
-        7) if [ "$tsoperatingmode" != "Custom" ]; then
-             if [ -f "/opt/bin/tailscale" ]; then sshts; fi
-           fi ;;
+        7) installdependencies;;
 
-        8) installdependencies;;
+        8) reinstalldependencies;;
 
-        9) reinstalldependencies;;
+        9) vupdate;;
 
-        10) vupdate;;
-
-        11) vuninstall;;
+        10) vuninstall;;
 
         [Ee]) echo ""; timer=$timerloop; break;;
 
@@ -3648,7 +3580,6 @@ saveconfig()
      echo 'exitnode='$exitnode
      echo 'advroutes='$advroutes
      echo 'accroutes='$accroutes
-     echo 'sshenable='$sshenable
      echo 'precmd="'"$precmd"'"'
      echo 'args="'"$args"'"'
      echo 'preargs="'"$preargs"'"'
@@ -4007,8 +3938,7 @@ while true; do
       if [ $exitnode -eq 1 ]; then exitnodecmd="--advertise-exit-node "; else exitnodecmd=""; fi
       if [ $advroutes -eq 1 ]; then advroutescmd="--advertise-routes=$routes "; else advroutescmd=""; fi
       if [ $accroutes -eq 1 ]; then accroutescmd="--accept-routes"; else accroutescmd=""; fi
-      if [ $sshenable -eq 1 ]; then sshcmd=" --ssh"; else sshcmd=""; fi
-      echo -e "${CWhite}${CGreen}$exitnodecmd$advroutescmd$accroutescmd$sshcmd${CClear}"
+      echo -e "${CWhite}${CGreen}$exitnodecmd$advroutescmd$accroutescmd${CClear}"
     fi
     echo ""
     #read -rsp $'Press any key to continue...\n' -n1 key
