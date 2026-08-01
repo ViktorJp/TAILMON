@@ -54,6 +54,7 @@ args="--tun=userspace-networking --state=/opt/var/tailscaled.state --statedir=/o
 preargs="nohup"
 routes="$(nvram get lan_ipaddr | cut -d"." -f1-3).0/24"
 customcmdline=""
+advsetupbypass=0
 
 #AMTM Email Notification Variables
 readonly scriptFileName="${0##*/}"
@@ -329,6 +330,7 @@ progressbarpause()
 
 initialsetup()
 {
+    advsetupbypass=0
     clear
     echo -e "${InvGreen} ${InvDkGray}${CWhite} TAILMON Initial Setup                                                                 ${CClear}"
     echo -e "${InvGreen} ${CClear}"
@@ -360,8 +362,10 @@ initialsetup()
 
         2)
         echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON Advanced Install initiated." >> $logfile
-        exec sh /jffs/scripts/tailmon.sh -setup;;
-
+        #exec sh /jffs/scripts/tailmon.sh -setup;;
+        advsetupbypass=1
+        vsetup;;
+        
         [Ee]) echo -e "${CClear}"; echo ""; exit 0;;
       esac
 }
@@ -2912,10 +2916,12 @@ vsetup()
   fi
 
   # Grab the TAILMON config file and read it in
-  if [ -f $config ]; then
-    source $config
-  else
-    initialsetup
+  if [ $advsetupbypass -eq 0 ]; then
+    if [ -f $config ]; then
+      source $config
+    else
+      initialsetup
+    fi
   fi
 
   while true; do
@@ -4176,3 +4182,5 @@ while true; do
 done
 
 exit 0
+
+#} #2>&1 | tee $LOG | logger -t $(basename $0)[$$]  # uncomment/comment to enable/disable debug mode
