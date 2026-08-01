@@ -12,7 +12,10 @@ v1.3.5    - (August 1, 2026)
             into the Express Installation experience after TAILMON is freshly installed, which helps
             guide the users into a fully armed and operational battlesta... I mean, fully functional
             Tailnet. ;)
-          - PATCH: Timer
+          - PATCH: During times when the service was not starting, a short temporary 5 second timer
+            appears that allows you to exit to the setup menu to fix your configuration settings. This
+            timer would continue beyond 5 seconds and was not able to be exited, and fixed it so that it
+            no longer exceeds 5 seconds.
 
 v1.3.4    - (July 12, 2026)
           - PATCH: Huge thanks to @nuTTeLLo for his contribution to TAILMON to add an explicit feature
