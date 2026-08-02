@@ -6,8 +6,8 @@
 # needs, you can also enable exit node and subnet route advertisements. Separately, TAILMON functions as a Tailscale
 # monitor application that will sit in the background (using the -screen utility), and will restart the Tailscale service
 # should it happen to go down. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi, and @kuki68ster for all their help, input
-# and original testing of this script!
-# Last Updated: 2026-Aug-02
+# and testing of this script!
+# Last Updated: 2026-Jul-12
 
 #Preferred standard router binaries path
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
@@ -20,7 +20,7 @@ unset LD_LIBRARY_PATH
 export SCREENDIR="${HOME}/.screen"
 
 #Static Variables - please do not change
-version="1.4.0"
+version="1.3.4"
 beta=0                                                               # Beta indicator on/off
 track=0                                                              # Stable (0) / Beta (1) Track subscription
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
@@ -54,9 +54,6 @@ args="--tun=userspace-networking --state=/opt/var/tailscaled.state --statedir=/o
 preargs="nohup"
 routes="$(nvram get lan_ipaddr | cut -d"." -f1-3).0/24"
 customcmdline=""
-progresspromptactive=0                                             # Tracks the monitoring prompt line
-laststatustext=""                                                  # Last status text drawn on the prompt line
-lastinputtext=""                                                   # Last input hint text drawn on the prompt line
 
 #AMTM Email Notification Variables
 readonly scriptFileName="${0##*/}"
@@ -238,105 +235,10 @@ preparebar()
   barchars=$(printf "%*s" "$1" | tr ' ' "$2")
 }
 
-# Read exactly one visible menu command followed by Enter.
-# Normal terminal echo and line editing remain available; pasted multi-character input is ignored.
-readmenucommand()
-{
-  key_press=""
-  menu_line_submitted=0
-  ttydev="$(tty 2>/dev/null)"
-
-  if [ -z "$ttydev" ] || [ "$ttydev" = "not a tty" ]; then
-    return 1
-  fi
-
-  if IFS= read -r -t 1 key_press < "$ttydev"; then
-    menu_line_submitted=1
-    [ "${#key_press}" -eq 1 ]
-    return $?
-  fi
-
-  key_press=""
-  return 1
-}
-
-# Keep the status and the editable command prompt on the same line. The status text is a
-# fixed-width field (callers zero-pad their numbers to a constant digit width), so timer
-# refreshes can redraw just that field in place at the start of the line without ever
-# reaching into the input area that follows, then restore the cursor, preserving terminal
-# echo, cursor position and backspace editing for whatever the user has typed there.
-drawprogressprompt()
-{
-  local status_text="$1"
-  local input_text="$2"
-
-  laststatustext="$status_text"
-  lastinputtext="$input_text"
-
-  if [ "$progresspromptactive" -ne 1 ]; then
-    printf "\033[2K\r%b %s\033[2D" "$status_text" "$input_text"
-    progresspromptactive=1
-  else
-    # Save the current input cursor, redraw the fixed-width status field, then restore it.
-    printf "\033[s\r%b\033[u" "$status_text"
-  fi
-}
-
-resetinvalidprogressinput()
-{
-  # A complete line was submitted, but it was not exactly one command character.
-  # read(1) has moved to the following line, so move back and restore a clean prompt.
-  printf "\033[1A\33[2K\r%b %s\033[2D" "$laststatustext" "$lastinputtext"
-}
-
-# Discard characters typed or pasted while an interactive command owned the terminal.
-# This prevents an authentication URL, including an incomplete line with no Enter, from
-# being interpreted later as part of a setup-menu selection.
-drainpendingttyinput()
-{
-  local ttydev discarded_input
-
-  ttydev="$(tty 2>/dev/null)"
-  if [ -z "$ttydev" ] || [ "$ttydev" = "not a tty" ]; then
-    return 0
-  fi
-
-  # Read one character at a time so this also clears a partial pasted line that
-  # has not yet received Enter. The final one-second timeout confirms the queue
-  # is empty. BusyBox ash already supports this -n1 form elsewhere in TAILMON.
-  while IFS= read -r -n 1 -t 1 discarded_input < "$ttydev"; do
-    :
-  done
-}
-
-# Monitoring Mode requires the complete Entware Tailscale installation, not just
-# a saved TAILMON configuration. Keep this check centralized so direct, SCREEN,
-# and Setup-menu launch paths all enforce the same requirement.
-tailscaleready()
-{
-  [ -x "/opt/bin/tailscale" ] &&
-  [ -x "/opt/bin/tailscaled" ] &&
-  [ -f "/opt/etc/init.d/S06tailscaled" ]
-}
-
-monitoringblocked()
-{
-  echo ""
-  echo -e "${CRed}TAILMON Monitoring Mode is unavailable because Tailscale is not fully installed.${CClear}"
-  echo -e "Install Tailscale using option 1 before launching Monitoring Mode."
-  echo ""
-
-  if [ "$1" = "pause" ]; then
-    read -rsp $'Press any key to continue...\n' -n1 key
-  fi
-}
-
 progressbaroverride()
 {
   insertspc=" "
   bypasswancheck=0
-
-  [ "$1" -eq 1 ] && progresspromptactive=0
 
   if [ $1 -eq -1 ]; then
     printf "\r  $barspaces\r"
@@ -354,20 +256,15 @@ progressbaroverride()
     if [ ! -z $6 ]; then AltNum=$6; else AltNum=$1; fi
 
     if [ "$5" == "Standard" ]; then
-      # Zero-pad the timer and percent to a fixed digit width (based on the configured
-      # timerloop) so the status field is always the same length across redraws. This
-      # keeps the input area that follows it from being disturbed when the timer refreshes.
-      tlwidth=${#2}
-      AltNumPadded=$(printf "%0${tlwidth}d" "$AltNum")
-      progrPadded=$(printf "%03d" "$progr")
-      drawprogressprompt "${InvGreen} ${CClear} ${CWhite}${InvDkGray}${AltNumPadded}${4} / ${progrPadded}%${CClear} [${CGreen}e${CClear}=Exit]${CClear}" "[Key+Enter?  ]"
+      printf "  ${CWhite}${InvDkGray}$AltNum${4} / ${progr}%%${CClear} [${CGreen}e${CClear}=Exit] [Selection? ${InvGreen} ${CClear}${CGreen}]\r${CClear}" "$barchars" "$barspaces"
     fi
   fi
 
-  # Require one command character followed by Enter. Pasted text is ignored.
-  if readmenucommand; then
-      progresspromptactive=0
-      echo ""
+  # Borrowed this wonderful keypress capturing mechanism from @Eibgrad... thank you! :)
+  #key_press=''; read -rsn1 -t 1 key_press < "$(tty 0>&2)"
+  key_press=''; read -rsn1 -t 1 key_press < "$(tty 0>&2 2>/dev/null || echo /dev/null)"
+
+  if [ $key_press ]; then
       case $key_press in
           [Aa]) vconfig;;
           [Cc]) vsetup;;
@@ -383,8 +280,6 @@ progressbaroverride()
           [Uu]) tsup;;
           *) timer=$timerloop;;
       esac
-  elif [ "$menu_line_submitted" -eq 1 ]; then
-      resetinvalidprogressinput
   fi
 }
 
@@ -392,8 +287,6 @@ progressbarpause()
 {
   insertspc=" "
   bypasswancheck=0
-
-  [ "$1" -eq 1 ] && progresspromptactive=0
 
   if [ "$1" -eq -1 ]
   then
@@ -414,21 +307,20 @@ progressbarpause()
 
     if [ "$5" = "Standard" ]
     then
-       drawprogressprompt "${InvGreen} ${CClear} ${CWhite}${InvDkGray}Continuing in $AltNum/5...${CClear} [${CGreen}s${CClear}=Setup] [${CGreen}e${CClear}=Exit]${CClear}" "[Key+Enter?  ]"
+       printf "  ${CWhite}${InvDkGray}Continuing in $AltNum/5...${CClear} [${CGreen}s${CClear}=Setup] [${CGreen}e${CClear}=Exit] [Selection? ${InvGreen} ${CClear}${CGreen}]\r${CClear}" "$barchars" "$barspaces"
     fi
   fi
 
-  # Require one command character followed by Enter. Pasted text is ignored.
-  if readmenucommand
+  # Borrowed this wonderful keypress capturing mechanism from @Eibgrad... thank you! :)
+  #key_press=''; read -rsn1 -t 1 key_press < "$(tty 0>&2)"
+  key_press=''; read -rsn1 -t 1 key_press < "$(tty 0>&2 2>/dev/null || echo /dev/null)"
+
+  if [ $key_press ]
   then
-      progresspromptactive=0
-      echo ""
       case $key_press in
           [Ss]) vsetup;;
           [Ee]) logoNMexit; echo -e "${CClear}\n"; exit 0;;
       esac
-  elif [ "$menu_line_submitted" -eq 1 ]; then
-      resetinvalidprogressinput
   fi
 }
 
@@ -467,10 +359,8 @@ initialsetup()
         expressinstall;;
 
         2)
-          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON Advanced Install initiated." >> "$logfile"
-          saveconfig
-          exec sh /jffs/scripts/tailmon.sh -setup
-          ;;
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON Advanced Install initiated." >> $logfile
+        exec sh /jffs/scripts/tailmon.sh -setup;;
 
         [Ee]) echo -e "${CClear}"; echo ""; exit 0;;
       esac
@@ -479,200 +369,107 @@ initialsetup()
 # -------------------------------------------------------------------------------------------------------------------------
 # Expressinstall script
 
-expressinstallfail()
-{
-  express_error="$1"
-
-  echo ""
-  echo -e "${CRed}ERROR: $express_error${CClear}"
-  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Express Install failed: $express_error" >> "$logfile"
-  echo ""
-  read -rsp $'Press any key to return to setup...\n' -n1 key
-
-  exec sh /jffs/scripts/tailmon.sh -setup
-  exit 1
-}
-
 expressinstall()
 {
   echo ""
   echo -e "Ready to Express Install Tailscale?"
   if promptyn "[y/n]: "
-  then
-    if [ ! -d "/opt" ]; then
-      clear
-      echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
-      echo -e "Please install Entware using the AMTM utility before proceeding..."
-      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Entware was not found installed on router. Please investigate." >> "$logfile"
+    then
+      if [ -d "/opt" ]; then # Does entware exist? If yes proceed, if no error out.
+        echo ""
+        echo -e "\n${CGreen}Updating Entware Packages...${CClear}"
+        echo ""
+        opkg update
+        echo ""
+        echo -e "Installing Entware ${CGreen}CoreUtils-Timeout${CClear} Package...${CClear}"
+        echo ""
+        opkg install coreutils-timeout
+        echo ""
+        echo -e "Installing Entware ${CGreen}Screen${CClear} Package...${CClear}"
+        echo ""
+        opkg install screen
+        echo ""
+        echo -e "${CGreen}Installing Tailscale Package(s)...${CClear}"
+        echo ""
+        archker=$(opkg print-architecture | grep "armv7-2.6")
+        if [ -z "$archker" ]; then
+          opkg install tailscale
+        else
+          opkg install tailscale_nohf #install special tailscale package for arm7 kernel 2.6
+        fi
+        echo ""
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Entware package installed." >> $logfile
+      else
+        clear
+        echo -e "${CRed}ERROR: Entware was not found on this router...${CClear}"
+        echo -e "Please install Entware using the AMTM utility before proceeding..."
+        echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Entware was not found installed on router. Please investigate." >> $logfile
+        echo ""
+        read -rsp $'Press any key to continue...\n' -n1 key
+        exit 1
+      fi
+    else
       echo ""
-      read -rsp $'Press any key to continue...\n' -n1 key
-      exit 1
-    fi
-  else
-    echo ""
-    echo -e "${CClear}"
-    exit 0
+      echo -e "${CClear}"
+      exit 0
   fi
 
   echo ""
-  echo -e "\n${CGreen}Updating Entware Packages...${CClear}"
-  echo ""
-  if ! opkg update; then
-    expressinstallfail "Unable to update the Entware package lists."
-  fi
-
-  echo ""
-  echo -e "Installing Entware ${CGreen}CoreUtils-Timeout${CClear} Package...${CClear}"
-  echo ""
-  if ! opkg install coreutils-timeout; then
-    expressinstallfail "Unable to install the Entware coreutils-timeout package."
-  fi
-
-  echo ""
-  echo -e "Installing Entware ${CGreen}Screen${CClear} Package...${CClear}"
-  echo ""
-  if ! opkg install screen; then
-    expressinstallfail "Unable to install the Entware screen package."
-  fi
-
-  echo ""
-  echo -e "${CGreen}Installing Tailscale Package(s)...${CClear}"
-  echo ""
-  archker=$(opkg print-architecture | grep "armv7-2.6")
-  if [ -z "$archker" ]; then
-    tspackage="tailscale"
-  else
-    tspackage="tailscale_nohf"
-  fi
-
-  if ! opkg install "$tspackage"; then
-    expressinstallfail "Unable to install the Entware $tspackage package."
-  fi
-
-  if [ ! -x "/opt/bin/tailscale" ] ||
-     [ ! -x "/opt/bin/tailscaled" ] ||
-     [ ! -f "/opt/etc/init.d/S06tailscaled" ]; then
-    expressinstallfail "The Tailscale binaries or service script were not installed correctly."
-  fi
-
-  echo ""
-  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Entware package installed." >> "$logfile"
-
-  echo -e "${CGreen}Updating Tailscale Binary to latest version..."
-  echo ""
-  echo -e "Executing: tailscale update --yes${CClear}"
-  echo ""
-
-  tsversion_before="$(tailscale version 2>/dev/null | awk 'NR==1 {print $1}')"
-  tailscale update --yes
-  tsupdate_rc=$?
-  tsversion_after="$(tailscale version 2>/dev/null | awk 'NR==1 {print $1}')"
-
-  if [ -z "$tsversion_after" ]; then
-    expressinstallfail "The installed Tailscale version could not be verified after the update."
-  fi
-
-  if [ "$tsupdate_rc" -ne 0 ]; then
-    if [ "$tsversion_after" = "$tsversion_before" ]; then
-      expressinstallfail "The Tailscale binary update failed."
-    fi
-
-    # Tailscale may update both binaries successfully but return an error because
-    # this Entware service is not managed by systemd or a standard init.d service.
-    echo ""
-    echo -e "${CYellow}WARNING: tailscale update returned an error, but the binary changed from"
-    echo -e "v$tsversion_before to v$tsversion_after and was verified successfully.${CClear}"
-  fi
-
-  if [ ! -x "/opt/bin/tailscale" ] || [ ! -x "/opt/bin/tailscaled" ]; then
-    expressinstallfail "The updated Tailscale binaries are not executable."
-  fi
-
-  echo ""
-  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale binary verified at version $tsversion_after." >> "$logfile"
-
   echo -e "${CGreen}Applying settings for Userspace mode of operation...${CClear}"
 
-  tsoperatingmode="Userspace"
-  precmd=""
-  args="--tun=userspace-networking --state=/opt/var/tailscaled.state --statedir=/opt/var/lib/tailscale"
-  preargs="nohup"
-  saveconfig
+    tsoperatingmode="Userspace"
+    precmd=""
+    args="--tun=userspace-networking --state=/opt/var/tailscaled.state --statedir=/opt/var/lib/tailscale"
+    preargs="nohup"
+    saveconfig
 
   echo ""
   echo -e "${CGreen}Applying settings to Tailscale service and connection...${CClear}"
 
-  if ! sed -i "s/^ARGS=.*/ARGS=\"--tun=userspace-networking\ --state=\/opt\/var\/tailscaled.state\ --statedir=\/opt\/var\/lib\/tailscale\"/" "/opt/etc/init.d/S06tailscaled"; then
-    expressinstallfail "Unable to apply the Userspace ARGS setting to S06tailscaled."
-  fi
+  if [ -f "/opt/bin/tailscale" ]; then
+    #make mods to the S06tailscaled service for Userspace mode
+    if [ "$tsoperatingmode" == "Userspace" ]; then
 
-  if ! sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"; then
-    expressinstallfail "Unable to apply the Userspace PREARGS setting to S06tailscaled."
-  fi
+      sed -i "s/^ARGS=.*/ARGS=\"--tun=userspace-networking\ --state=\/opt\/var\/tailscaled.state\ --statedir=\/opt\/var\/lib\/tailscale\"/" "/opt/etc/init.d/S06tailscaled"
+      sed -i "s/^PREARGS=.*/PREARGS=\"nohup\"/" "/opt/etc/init.d/S06tailscaled"
+      sed -i -e '/^PRECMD=/d' "/opt/etc/init.d/S06tailscaled"
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Userspace Mode settings have been applied." >> $logfile
 
-  if ! sed -i -e '/^PRECMD=/d' "/opt/etc/init.d/S06tailscaled"; then
-    expressinstallfail "Unable to remove the PRECMD setting from S06tailscaled."
-  fi
+      #remove firewall-start entry if found
+      if [ -f /jffs/scripts/firewall-start ]; then
 
-  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Userspace Mode settings have been applied." >> "$logfile"
+        if grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" /jffs/scripts/firewall-start; then
+          sed -i -e '/tailscale down/d' /jffs/scripts/firewall-start
+        fi
 
-  # Remove the legacy firewall-start entry if found.
-  if [ -f "/jffs/scripts/firewall-start" ] &&
-     grep -q -F "if [ -x /opt/bin/tailscale ]; then tailscale down; tailscale up; fi" "/jffs/scripts/firewall-start"; then
-    sed -i -e '/tailscale down/d' "/jffs/scripts/firewall-start"
+      fi
+    fi
+  else
+    echo ""
+    echo -e "${CRed}ERROR: Tailscale binary was not found. Please check Entware and router/drive for errors.${CClear}"
+    echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale binaries not found on router. Please investigate." >> $logfile
+    exit 1
   fi
 
   echo ""
   echo -e "${CGreen}Starting Tailscale service...${CClear}"
   echo ""
-  if ! /opt/etc/init.d/S06tailscaled start; then
-    expressinstallfail "The Tailscale service command failed to start."
-  fi
-
-  service_ready=0
-  service_wait=0
-  while [ "$service_wait" -lt 5 ]
-  do
-    sleep 1
-    if /opt/etc/init.d/S06tailscaled check >/dev/null 2>&1; then
-      service_ready=1
-      break
-    fi
-    service_wait=$((service_wait+1))
-  done
-
-  if [ "$service_ready" -ne 1 ]; then
-    expressinstallfail "tailscaled did not remain running after startup."
-  fi
-
-  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service started and verified." >> "$logfile"
+  /opt/etc/init.d/S06tailscaled start
+  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Service started." >> $logfile
 
   echo ""
   echo ""
   echo -e "${CGreen}Starting Tailscale connection...${CClear}"
   echo ""
-  echo -e "${CGreen}Please copy the authentication link below into your browser and connect this device"
-  echo -e "to your tailnet. Do not paste the link back into the TAILMON terminal.${CClear}"
+  echo -e "${CGreen}Please be prepared to copy and paste the link below into your browser, and connect this device"
+  echo -e "to your tailnet (Tailscale Network)${CClear}"
   echo ""
-
   advroutescmd="--advertise-routes=$routes"
-  if [ "$sshenable" -eq 1 ]; then
-    sshcmd=" --ssh"
-  else
-    sshcmd=""
-  fi
-
+  if [ $sshenable -eq 1 ]; then sshcmd=" --ssh"; else sshcmd=""; fi
   echo -e "${CGreen}Executing: tailscale up $advroutescmd$sshcmd${CClear}"
   echo ""
-  if ! tailscale up $advroutescmd$sshcmd; then
-    expressinstallfail "The Tailscale connection did not start correctly."
-  fi
-
-  if ! tailscale status >/dev/null 2>&1; then
-    expressinstallfail "The Tailscale connection could not be verified after authentication."
-  fi
-
-  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection started and verified." >> "$logfile"
+  tailscale up $advroutescmd$sshcmd
+  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection started." >> $logfile
 
   echo ""
   echo ""
@@ -694,9 +491,7 @@ installts()
   echo -e "${InvGreen} ${InvDkGray}${CWhite} Install Tailscale                                                                     ${CClear}"
   echo -e "${InvGreen} ${CClear}"
   echo -e "${InvGreen} ${CClear} This installer will download and install Tailscale from the Entware respository."
-  echo -e "${InvGreen} ${CClear} It will also check for any prerequisites before install commences. You will also"
-  echo -e "${InvGreen} ${CClear} have the opportunity to download the latest version directly from Tailscale"
-  echo -e "${InvGreen} ${CClear} once the Entware version has been installed during ths process."
+  echo -e "${InvGreen} ${CClear} It will also check for any prerequisites before install commences."
   echo -e "${InvGreen} ${CClear}${CDkGray}---------------------------------------------------------------------------------------${CClear}"
   echo ""
   echo -e "Install Tailscale?"
@@ -717,40 +512,6 @@ installts()
           opkg install tailscale_nohf #install special tailscale package for arm7 kernel 2.6
         fi
         echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Entware package installed." >> $logfile
-
-        # The Entware package creates a fresh S06tailscaled service script. Apply the
-        # operating mode already selected in TAILMON so package defaults cannot leave
-        # the saved mode and the actual service configuration out of sync.
-        if [ ! -f "/opt/etc/init.d/S06tailscaled" ]; then
-          echo ""
-          echo -e "${CRed}ERROR: Tailscale service script was not found after installation.${CClear}"
-          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: S06tailscaled was not found after package installation." >> "$logfile"
-          echo ""
-          read -rsp $'Press any key to continue...\n' -n1 key
-          return 1
-        fi
-
-        echo ""
-        echo -e "${CGreen}Applying selected $tsoperatingmode operating mode...${CClear}"
-        case "$tsoperatingmode" in
-          Userspace)
-            applyuserspacemode
-            ;;
-          Kernel)
-            applykernelmode
-            ;;
-          Custom)
-            applycustommode
-            ;;
-          *)
-            echo -e "${CRed}ERROR: Unknown operating mode: $tsoperatingmode${CClear}"
-            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unknown operating mode '$tsoperatingmode' after package installation." >> "$logfile"
-            echo ""
-            read -rsp $'Press any key to continue...\n' -n1 key
-            return 1
-            ;;
-        esac
-
         echo ""
         read -rsp $'Press any key to continue...\n' -n1 key
       else
@@ -762,30 +523,8 @@ installts()
         read -rsp $'Press any key to continue...\n' -n1 key
         exit 1
       fi
-    else
-      echo ""
-      echo -e "${CClear}[Installation cancelled]"
-      sleep 1
-      return
   fi
   resettimer=1
-
-  echo ""
-  echo -e "${CClear}Update Tailscale to the latest version?"
-  if promptyn "[y/n]: "
-    then
-      echo ""
-      echo -e "${CGreen}Updating Tailscale Binary${CClear}"
-      echo ""
-      echo -e "${CGreen}Executing: tailscale update${CClear}"
-      echo ""
-      tailscale update
-      echo -e "${CClear}"
-      echo ""
-      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale binary updated to latest available version." >> $logfile
-      echo ""
-      read -rsp $'Press any key to continue...\n' -n1 key
-  fi
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -895,7 +634,7 @@ startts()
           echo ""
           #Display a standard timer#
           timer=0
-          while [ $timer -le 5 ]
+          while [ $timer -ne 5 ]
           do
             timer="$((timer+1))"
             preparebar 46 "|"
@@ -1056,7 +795,7 @@ tsup()
             echo ""
             #Display a standard timer#
             timer=0
-            while [ $timer -le 5 ]
+            while [ $timer -ne 5 ]
             do
               timer="$((timer+1))"
               preparebar 46 "|"
@@ -1075,7 +814,7 @@ tsup()
             echo ""
             #Display a standard timer#
             timer=0
-            while [ $timer -le 5 ]
+            while [ $timer -ne 5 ]
             do
               timer="$((timer+1))"
               preparebar 46 "|"
@@ -1084,10 +823,6 @@ tsup()
             printf "\33[2K\r"
         fi
       fi
-
-      # `tailscale up` may leave pasted authentication text/newlines queued on the TTY.
-      # Drain that pending terminal input before returning to the setup menu.
-      drainpendingttyinput
 
       echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Connection started." >> $logfile
       resettimer=1
@@ -1177,7 +912,7 @@ setipforwarding()
   if [ -f "/proc/sys/net/ipv4/ip_forward" ] && grep -q "^1$" /proc/sys/net/ipv4/ip_forward; then
     return
   fi
-
+  
   echo 1 > /proc/sys/net/ipv4/ip_forward
   echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
   if [ ! -f "/jffs/scripts/init-start" ]; then
@@ -1202,26 +937,6 @@ booleantoyesno()
   else
     echo "No"
   fi
-}
-
-# -------------------------------------------------------------------------------------------------------------------------
-# vercompare compares two dotted version strings numerically (ignoring any non-numeric beta suffix,
-# e.g. "5b1" is treated as "5") and echoes "gt", "lt", or "eq" depending on whether $1 is greater
-# than, less than, or equal to $2.
-vercompare()
-{
-  awk -v v1="$1" -v v2="$2" 'BEGIN {
-    n1=split(v1,a,".")
-    n2=split(v2,b,".")
-    n=(n1>n2)?n1:n2
-    for(i=1;i<=n;i++) {
-      x=(i<=n1)?a[i]+0:0
-      y=(i<=n2)?b[i]+0:0
-      if (x>y) { print "gt"; exit }
-      if (x<y) { print "lt"; exit }
-    }
-    print "eq"
-  }'
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -1316,14 +1031,8 @@ autoupdate()
               rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
               exit 1
           fi
-          verdirection=$(vercompare "$serverver" "$localver")
-          if [ "$verdirection" = "lt" ]; then
-            if [ "$track" = "1" ]; then tracklabel="Beta"; else tracklabel="Stable"; fi
-            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Installed TAILMON v$localver did not match the configured $tracklabel track -- corrected to v$serverver" >> $logfile
-          else
-            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Successfully autoupdated TAILMON from v$localver to v$serverver" >> $logfile
-          fi
-          sendmessage 0 "TAILMON Script Successfully Updated" $localver $serverver $verdirection
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Successfully autoupdated TAILMON from v$localver to v$serverver" >> $logfile
+          sendmessage 0 "TAILMON Script Successfully Updated" $localver $serverver
           echo > /jffs/addons/tailmon.d/updated.txt
       else
         printf "\33[2K\r"
@@ -1388,7 +1097,7 @@ autoupdate()
           printf "${CGreen}\r[Downloading New Tailscale Binary v$servertsver]\n"
           echo -e "${CClear}"
           sleep 1
-          tailscale update --yes
+          tailscale update -yes
           officialtsver=$?
           if [ $officialtsver -ne 0 ]
             then
@@ -2279,11 +1988,6 @@ while true; do
           break
 
         fi
-      else
-        echo ""
-        echo -e "${CClear}[Exiting]"
-        timer=$timerloop
-        break
       fi
     ;;
 
@@ -2447,7 +2151,7 @@ exitnodets()
   saveconfig
   timer=$timerloop
 
-  if [ -f "/opt/bin/tailscale" ] && [ "$exitnode" -ne "$oldexitnode" ]; then
+  if [ $exitnode -ne $oldexitnode ]; then
     echo ""
     echo -e "\nChanging exit node configuration options will require a restart of Tailscale. Restart now?"
     if promptyn "[y/n]: "
@@ -2515,7 +2219,7 @@ advroutests()
         sleep 1
         return
       fi
-
+        
       if [ -z "$routeinput" ]; then
         routes=$(nvram get lan_ipaddr | cut -d"." -f1-3).0/24
       else
@@ -2531,7 +2235,7 @@ advroutests()
   saveconfig
   timer=$timerloop
 
-  if [ -f "/opt/bin/tailscale" ] && { [ "$advroutes" -ne "$oldadvroutes" ] || [ "$routes" != "$oldroutes" ]; }; then
+  if [ $advroutes -ne $oldadvroutes ] || [ "$routes" != "$oldroutes" ]; then
     echo ""
     echo -e "\nChanging advertised routes configuration options will require a restart of Tailscale. Restart now?"
     if promptyn "[y/n]: "
@@ -2585,7 +2289,7 @@ accroutests()
   saveconfig
   timer=$timerloop
 
-  if [ -f "/opt/bin/tailscale" ] && [ "$accroutes" -ne "$oldaccroutes" ]; then
+  if [ $accroutes -ne $oldaccroutes ]; then
     echo ""
     echo -e "\nChanging routing configuration options will require a restart of Tailscale. Restart now?"
     if promptyn "[y/n]: "
@@ -2641,7 +2345,7 @@ sshts()
   saveconfig
   timer=$timerloop
 
-  if [ -f "/opt/bin/tailscale" ] && [ "$sshenable" -ne "$oldsshenable" ]; then
+  if [ $sshenable -ne $oldsshenable ]; then
     echo ""
     echo -e "\nChanging the SSH setting will require a restart of Tailscale. Restart now?"
     if promptyn "[y/n]: "
@@ -2974,26 +2678,14 @@ fi
         printf "\n"
         } > "$tmpEMailBodyFile"
       elif [ "$2" == "TAILMON Script Successfully Updated" ]; then
-        if [ "$5" == "lt" ]; then
-          emailSubject="SUCCESS: TAILMON was corrected to the configured track"
-          emailBodyTitle="SUCCESS: TAILMON v$3 did not match the configured track and was corrected to v$4"
-          {
-          printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
-          printf "\n"
-          printf "<b>SUCCESS: TAILMON</b> detected that the installed script (v$3) did not match the configured\n"
-          printf "update track and has corrected it to the appropriate version (v$4) via autoupdate.\n"
-          printf "\n"
-          } > "$tmpEMailBodyFile"
-        else
-          emailSubject="SUCCESS: TAILMON was successfully updated via autoupdate"
-          emailBodyTitle="SUCCESS: TAILMON was successfully updated via autoupdate from v$3 to v$4"
-          {
-          printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
-          printf "\n"
-          printf "<b>SUCCESS: TAILMON</b> was successfully updated to the latest version via autoupdate.\n"
-          printf "\n"
-          } > "$tmpEMailBodyFile"
-        fi
+        emailSubject="SUCCESS: TAILMON was successfully updated via autoupdate"
+        emailBodyTitle="SUCCESS: TAILMON was successfully updated via autoupdate from v$3 to v$4"
+        {
+        printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+        printf "\n"
+        printf "<b>SUCCESS: TAILMON</b> was successfully updated to the latest version via autoupdate.\n"
+        printf "\n"
+        } > "$tmpEMailBodyFile"
       fi
       _SendEMailNotification_ "TAILMON v$version" "$emailSubject" "$tmpEMailBodyFile" "$emailBodyTitle"
     fi
@@ -3194,13 +2886,6 @@ vsetup()
     installdependencies
   fi
 
-  # Grab the TAILMON config file and read it in
-  if [ -f $config ]; then
-    source $config
-  else
-    initialsetup
-  fi
-
   while true; do
 
     clear # Initial Setup
@@ -3210,7 +2895,7 @@ vsetup()
       saveconfig
     fi
 
-    if tailscaleready; then tsinstalleddisp="Installed"; else tsinstalleddisp="Not Installed"; fi
+    if [ -f "/opt/bin/tailscale" ]; then tsinstalleddisp="Installed"; else tsinstalleddisp="Not Installed"; fi
     if [ $exitnode -eq 0 ]; then exitnodedisp="No"; elif [ $exitnode -eq 1 ]; then exitnodedisp="Yes"; fi
     if [ $advroutes -eq 0 ]; then advroutesdisp="No"; elif [ $advroutes -eq 1 ]; then advroutesdisp="Yes ($routes)"; fi
     if [ $accroutes -eq 0 ]; then accroutesdisp="No"; elif [ $accroutes -eq 1 ]; then accroutesdisp="Yes"; fi
@@ -3270,13 +2955,8 @@ vsetup()
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(10)${CClear} : Check for latest updates${CClear}"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(11)${CClear} : Uninstall TAILMON${CClear}"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  | ${CClear}"
-    if tailscaleready; then
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( L)${CClear} : Launch TAILMON in Monitoring Mode (${CGreen}sh /jffs/scripts/tailmon.sh${CClear})"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( M)${CClear} : Launch TAILMON in Monitoring Mode using SCREEN (${CGreen}sh /jf..ts/tailmon.sh -screen${CClear})"
-    else
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}( L) : Launch TAILMON in Monitoring Mode              : Unavailable (install Tailscale first)${CClear}"
-      echo -e "${InvGreen} ${CClear} ${InvDkGray}( M) : Launch TAILMON using SCREEN                   : Unavailable (install Tailscale first)${CClear}"
-    fi
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( L)${CClear} : Launch TAILMON in Monitoring Mode (${CGreen}sh /jffs/scripts/tailmon.sh${CClear})"
+    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( M)${CClear} : Launch TAILMON in Monitoring Mode using SCREEN (${CGreen}sh /jf..ts/tailmon.sh -screen${CClear})"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  | ${CClear}"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( e)${CClear} : Exit${CClear}"
     echo -e "${InvGreen} ${CClear}"
@@ -3289,7 +2969,7 @@ vsetup()
         read -p "Please select? (1-11, R/S/T/U/D/P/B/F/I/L/M, e=Exit): " SelectSlot
       fi
     else
-      read -p "Please select? (1-11, e=Exit): " SelectSlot
+      read -p "Please select? (1-11, L/M, e=Exit): " SelectSlot
     fi
       case $SelectSlot in
 
@@ -3303,21 +2983,9 @@ vsetup()
 
         [Dd]) echo ""; tsdown;;
 
-        [Ll])
-          if tailscaleready; then
-            exec sh /jffs/scripts/tailmon.sh -noswitch
-          else
-            monitoringblocked pause
-          fi
-          ;;
+        [Ll]) exec sh /jffs/scripts/tailmon.sh -noswitch;;
 
-        [Mm])
-          if tailscaleready; then
-            exec sh /jffs/scripts/tailmon.sh -screen -now
-          else
-            monitoringblocked pause
-          fi
-          ;;
+        [Mm]) exec sh /jffs/scripts/tailmon.sh -screen -now;;
 
         [Oo]) if [ "$tsoperatingmode" == "Custom" ]; then
                 customconfig
@@ -3335,22 +3003,22 @@ vsetup()
 
         2) uninstallts;;
 
-        3) operatingmode;;
+        3) if [ -f "/opt/bin/tailscale" ]; then operatingmode; fi;;
 
         4) if [ "$tsoperatingmode" != "Custom" ]; then
-             exitnodets
+             if [ -f "/opt/bin/tailscale" ]; then exitnodets; fi
            fi ;;
 
         5) if [ "$tsoperatingmode" != "Custom" ]; then
-             advroutests
+             if [ -f "/opt/bin/tailscale" ]; then advroutests; fi
            fi ;;
 
         6) if [ "$tsoperatingmode" != "Custom" ]; then
-             accroutests
+             if [ -f "/opt/bin/tailscale" ]; then accroutests; fi
            fi ;;
 
         7) if [ "$tsoperatingmode" != "Custom" ]; then
-             sshts
+             if [ -f "/opt/bin/tailscale" ]; then sshts; fi
            fi ;;
 
         8) installdependencies;;
@@ -3361,7 +3029,7 @@ vsetup()
 
         11) vuninstall;;
 
-        [Ee]) echo -e "${CClear}"; timer=$timerloop; break;;
+        [Ee]) echo ""; timer=$timerloop; break;;
 
       esac
   done
@@ -4109,12 +3777,6 @@ fi
 # Check to see if the screen option is being called and run operations normally using the screen utility
 if [ "$1" == "-screen" ]
   then
-    if ! tailscaleready; then
-      clear
-      monitoringblocked
-      exit 1
-    fi
-
     /opt/sbin/screen -wipe >/dev/null 2>&1 # Kill any dead screen sessions
     sleep 1
     ScreenSess=$(/opt/sbin/screen -ls | grep "tailmon" | awk '{print $1}' | cut -d . -f 1)
@@ -4161,13 +3823,6 @@ if [ "$1" == "-noswitch" ]
   then
     clear #last switch before the main program starts
 
-    if ! tailscaleready; then
-      monitoringblocked
-      sleep 1
-      exec sh /jffs/scripts/tailmon.sh -setup
-      exit 1
-    fi
-
     if [ ! -f $config ]; then
       initialsetup
     else
@@ -4188,17 +3843,6 @@ if [ "$1" == "-noswitch" ]
           echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: New TAILMON BETA TRACK v$Bversion available for download/install." >> $logfile
       fi
     fi
-fi
-
-# A direct monochrome launch also enters Monitoring Mode without using -noswitch.
-if [ "$1" == "-bw" ] || [ "$1" == "-now" ]; then
-  if ! tailscaleready; then
-    clear
-    monitoringblocked
-    sleep 1
-    exec sh /jffs/scripts/tailmon.sh -setup
-    exit 1
-  fi
 fi
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -4429,15 +4073,34 @@ while true; do
   fi
 
   #Determine if Tailscale service is down
-  if [ "$tsinstalled" -eq 1 ] &&
-     [ "$keepalive" -eq 1 ] &&
-     [ "$tsstatus" -ne 0 ]; then
+  if [ $tsinstalled -eq 1 ] && [ $keepalive -eq 1 ]; then
+    if [ $tsservice -ne 0 ]; then
+      printf "\33[2K\r"
+      printf "${CGreen}\r[Tailscale Service appears dead]"
+      echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale Service appears dead." >> $logfile
+      sleep 1
 
+      tsdown
+      stopts
+      startts
+      tsup
+
+      resettimer=1
+      echo ""
+      sendmessage 1 "Tailscale Service Restarted"
+
+      exec sh /jffs/scripts/tailmon.sh -noswitch
+
+    fi
+  fi
+
+  #Determine if Tailscale status is producing an error
+  if [ $tsstatus -ne 0 ]; then
     printf "\33[2K\r"
     printf "${CGreen}\r[Tailscale Status producing errors...Restarting services]"
-    echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale Status producing errors. Restarting services." >> "$logfile"
-
+    echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Tailscale Status producing errors. Restarting services." >> $logfile
     sleep 1
+
     tsdown
     stopts
     startts
@@ -4481,5 +4144,3 @@ while true; do
 done
 
 exit 0
-
-#} #2>&1 | tee $LOG | logger -t $(basename $0)[$$]  # uncomment/comment to enable/disable debug mode

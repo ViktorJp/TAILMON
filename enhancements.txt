@@ -1,5 +1,6 @@
 TO-DO
 -----
+* alan6854321 said: I'm not a big fan of auto-updates, prefer updates to happen while I'm watching. But - how about a notification if there's an update waiting, Email maybe?
 * Do more error/status checking on the install of tailscale entware packages, and during the startup of the service/connection... and if it errors out, present better messaging around that, and potentially stopping the script in order to do more troubleshooting.
 
 DONE
