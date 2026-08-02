@@ -54,7 +54,9 @@ args="--tun=userspace-networking --state=/opt/var/tailscaled.state --statedir=/o
 preargs="nohup"
 routes="$(nvram get lan_ipaddr | cut -d"." -f1-3).0/24"
 customcmdline=""
-progresspromptactive=0                                             # Tracks the two-line monitoring prompt
+progresspromptactive=0                                             # Tracks the monitoring prompt line
+laststatustext=""                                                  # Last status text drawn on the prompt line
+lastinputtext=""                                                   # Last input hint text drawn on the prompt line
 
 #AMTM Email Notification Variables
 readonly scriptFileName="${0##*/}"
@@ -258,19 +260,25 @@ readmenucommand()
   return 1
 }
 
-# Keep the editable command prompt on its own line. Timer refreshes update only
-# the line above it, preserving terminal echo, cursor position and backspace editing.
+# Keep the status and the editable command prompt on the same line. The status text is a
+# fixed-width field (callers zero-pad their numbers to a constant digit width), so timer
+# refreshes can redraw just that field in place at the start of the line without ever
+# reaching into the input area that follows, then restore the cursor, preserving terminal
+# echo, cursor position and backspace editing for whatever the user has typed there.
 drawprogressprompt()
 {
   local status_text="$1"
   local input_text="$2"
 
+  laststatustext="$status_text"
+  lastinputtext="$input_text"
+
   if [ "$progresspromptactive" -ne 1 ]; then
-    printf "\033[2K\r%b\n\033[2K\r%s\033[2D" "$status_text" "$input_text"
+    printf "\033[2K\r%b %s\033[2D" "$status_text" "$input_text"
     progresspromptactive=1
   else
-    # Save the current input cursor, redraw only the status line above, then restore it.
-    printf "\033[s\033[1A\033[2K\r%b\033[u" "$status_text"
+    # Save the current input cursor, redraw the fixed-width status field, then restore it.
+    printf "\033[s\r%b\033[u" "$status_text"
   fi
 }
 
@@ -278,7 +286,7 @@ resetinvalidprogressinput()
 {
   # A complete line was submitted, but it was not exactly one command character.
   # read(1) has moved to the following line, so move back and restore a clean prompt.
-  printf "\033[1A\33[2K\r  [Key+Enter?  ]\033[2D"
+  printf "\033[1A\33[2K\r%b %s\033[2D" "$laststatustext" "$lastinputtext"
 }
 
 # Discard characters typed or pasted while an interactive command owned the terminal.
@@ -324,13 +332,20 @@ progressbaroverride()
     if [ ! -z $6 ]; then AltNum=$6; else AltNum=$1; fi
 
     if [ "$5" == "Standard" ]; then
-      drawprogressprompt "  ${CWhite}${InvDkGray}$AltNum${4} / ${progr}%${CClear} [${CGreen}e${CClear}=Exit]${CClear}" "  [Key+Enter?  ]"
+      # Zero-pad the timer and percent to a fixed digit width (based on the configured
+      # timerloop) so the status field is always the same length across redraws. This
+      # keeps the input area that follows it from being disturbed when the timer refreshes.
+      tlwidth=${#2}
+      AltNumPadded=$(printf "%0${tlwidth}d" "$AltNum")
+      progrPadded=$(printf "%03d" "$progr")
+      drawprogressprompt "${InvGreen} ${CClear} ${CWhite}${InvDkGray}${AltNumPadded}${4} / ${progrPadded}%${CClear} [${CGreen}e${CClear}=Exit]${CClear}" "[Key+Enter?  ]"
     fi
   fi
 
   # Require one command character followed by Enter. Pasted text is ignored.
   if readmenucommand; then
       progresspromptactive=0
+      echo ""
       case $key_press in
           [Aa]) vconfig;;
           [Cc]) vsetup;;
@@ -377,7 +392,7 @@ progressbarpause()
 
     if [ "$5" = "Standard" ]
     then
-       drawprogressprompt "  ${CWhite}${InvDkGray}Continuing in $AltNum/5...${CClear} [${CGreen}s${CClear}=Setup] [${CGreen}e${CClear}=Exit]${CClear}" "  [Key+Enter?  ]"
+       drawprogressprompt "${InvGreen} ${CClear} ${CWhite}${InvDkGray}Continuing in $AltNum/5...${CClear} [${CGreen}s${CClear}=Setup] [${CGreen}e${CClear}=Exit]${CClear}" "[Key+Enter?  ]"
     fi
   fi
 
@@ -385,6 +400,7 @@ progressbarpause()
   if readmenucommand
   then
       progresspromptactive=0
+      echo ""
       case $key_press in
           [Ss]) vsetup;;
           [Ee]) logoNMexit; echo -e "${CClear}\n"; exit 0;;
@@ -697,7 +713,7 @@ installts()
       return
   fi
   resettimer=1
-  
+
   echo ""
   echo -e "${CClear}Update Tailscale to the latest version?"
   if promptyn "[y/n]: "
@@ -1105,7 +1121,7 @@ setipforwarding()
   if [ -f "/proc/sys/net/ipv4/ip_forward" ] && grep -q "^1$" /proc/sys/net/ipv4/ip_forward; then
     return
   fi
-  
+
   echo 1 > /proc/sys/net/ipv4/ip_forward
   echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
   if [ ! -f "/jffs/scripts/init-start" ]; then
@@ -2417,7 +2433,7 @@ advroutests()
         sleep 1
         return
       fi
-        
+
       if [ -z "$routeinput" ]; then
         routes=$(nvram get lan_ipaddr | cut -d"." -f1-3).0/24
       else
