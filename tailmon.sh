@@ -20,7 +20,7 @@ unset LD_LIBRARY_PATH
 export SCREENDIR="${HOME}/.screen"
 
 #Static Variables - please do not change
-version="1.3.5"
+version="1.3.5b4"
 beta=1                                                               # Beta indicator on/off
 track=0                                                              # Stable (0) / Beta (1) Track subscription
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
@@ -1205,6 +1205,26 @@ booleantoyesno()
 }
 
 # -------------------------------------------------------------------------------------------------------------------------
+# vercompare compares two dotted version strings numerically (ignoring any non-numeric beta suffix,
+# e.g. "5b1" is treated as "5") and echoes "gt", "lt", or "eq" depending on whether $1 is greater
+# than, less than, or equal to $2.
+vercompare()
+{
+  awk -v v1="$1" -v v2="$2" 'BEGIN {
+    n1=split(v1,a,".")
+    n2=split(v2,b,".")
+    n=(n1>n2)?n1:n2
+    for(i=1;i<=n;i++) {
+      x=(i<=n1)?a[i]+0:0
+      y=(i<=n2)?b[i]+0:0
+      if (x>y) { print "gt"; exit }
+      if (x<y) { print "lt"; exit }
+    }
+    print "eq"
+  }'
+}
+
+# -------------------------------------------------------------------------------------------------------------------------
 # autoupdate will automatically download and install new TAILMON scripts and Tailscale binaries - run via CRON job/switch
 
 autoupdate()
@@ -1296,8 +1316,14 @@ autoupdate()
               rm -f /jffs/addons/tailmon.d/updating.txt >/dev/null 2>&1
               exit 1
           fi
-          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Successfully autoupdated TAILMON from v$localver to v$serverver" >> $logfile
-          sendmessage 0 "TAILMON Script Successfully Updated" $localver $serverver
+          verdirection=$(vercompare "$serverver" "$localver")
+          if [ "$verdirection" = "lt" ]; then
+            if [ "$track" = "1" ]; then tracklabel="Beta"; else tracklabel="Stable"; fi
+            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Installed TAILMON v$localver did not match the configured $tracklabel track -- corrected to v$serverver" >> $logfile
+          else
+            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Successfully autoupdated TAILMON from v$localver to v$serverver" >> $logfile
+          fi
+          sendmessage 0 "TAILMON Script Successfully Updated" $localver $serverver $verdirection
           echo > /jffs/addons/tailmon.d/updated.txt
       else
         printf "\33[2K\r"
@@ -2948,14 +2974,26 @@ fi
         printf "\n"
         } > "$tmpEMailBodyFile"
       elif [ "$2" == "TAILMON Script Successfully Updated" ]; then
-        emailSubject="SUCCESS: TAILMON was successfully updated via autoupdate"
-        emailBodyTitle="SUCCESS: TAILMON was successfully updated via autoupdate from v$3 to v$4"
-        {
-        printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
-        printf "\n"
-        printf "<b>SUCCESS: TAILMON</b> was successfully updated to the latest version via autoupdate.\n"
-        printf "\n"
-        } > "$tmpEMailBodyFile"
+        if [ "$5" == "lt" ]; then
+          emailSubject="SUCCESS: TAILMON was corrected to the configured track"
+          emailBodyTitle="SUCCESS: TAILMON v$3 did not match the configured track and was corrected to v$4"
+          {
+          printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+          printf "\n"
+          printf "<b>SUCCESS: TAILMON</b> detected that the installed script (v$3) did not match the configured\n"
+          printf "update track and has corrected it to the appropriate version (v$4) via autoupdate.\n"
+          printf "\n"
+          } > "$tmpEMailBodyFile"
+        else
+          emailSubject="SUCCESS: TAILMON was successfully updated via autoupdate"
+          emailBodyTitle="SUCCESS: TAILMON was successfully updated via autoupdate from v$3 to v$4"
+          {
+          printf "<b>Date/Time:</b> $(date +'%b %d %Y %X')\n"
+          printf "\n"
+          printf "<b>SUCCESS: TAILMON</b> was successfully updated to the latest version via autoupdate.\n"
+          printf "\n"
+          } > "$tmpEMailBodyFile"
+        fi
       fi
       _SendEMailNotification_ "TAILMON v$version" "$emailSubject" "$tmpEMailBodyFile" "$emailBodyTitle"
     fi
