@@ -6,8 +6,8 @@
 # needs, you can also enable exit node and subnet route advertisements. Separately, TAILMON functions as a Tailscale
 # monitor application that will sit in the background (using the -screen utility), and will restart the Tailscale service
 # should it happen to go down. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi, and @kuki68ster for all their help, input
-# and testing of this script!
-# Last Updated: 2026-Aug-01
+# and original testing of this script!
+# Last Updated: 2026-Aug-02
 
 #Preferred standard router binaries path
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
@@ -20,8 +20,8 @@ unset LD_LIBRARY_PATH
 export SCREENDIR="${HOME}/.screen"
 
 #Static Variables - please do not change
-version="1.3.5b4"
-beta=1                                                               # Beta indicator on/off
+version="1.4.0"
+beta=0                                                               # Beta indicator on/off
 track=0                                                              # Stable (0) / Beta (1) Track subscription
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
 config="/jffs/addons/tailmon.d/tailmon.cfg"                          # Static path to the config file
