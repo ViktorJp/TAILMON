@@ -1,5 +1,7 @@
-v1.3.5b4  - (August 2, 2026)
-          - MINOR: Thanks to @ExtremeFiretop for documenting his horrible user experience getting TAILMON
+v1.4.0    - (August 2, 2026)
+          - MINOR: Enough significant changes below in the enhancement of the user experience after first
+            installing TAILMON warrants a MINOR version update.
+          - PATCH: Thanks to @ExtremeFiretop for documenting his horrible user experience getting TAILMON
             up and running. It seems that if you install TAILMON from scratch using the default Tailscale
             binary that comes default with Entware (v1.96.1-1 currently), when going through the setup
             process in TAILMON will cause it to fail to connect to Tailscale services, and fails to even
