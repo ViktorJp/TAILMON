@@ -309,6 +309,28 @@ drainpendingttyinput()
   done
 }
 
+# Monitoring Mode requires the complete Entware Tailscale installation, not just
+# a saved TAILMON configuration. Keep this check centralized so direct, SCREEN,
+# and Setup-menu launch paths all enforce the same requirement.
+tailscaleready()
+{
+  [ -x "/opt/bin/tailscale" ] &&
+  [ -x "/opt/bin/tailscaled" ] &&
+  [ -f "/opt/etc/init.d/S06tailscaled" ]
+}
+
+monitoringblocked()
+{
+  echo ""
+  echo -e "${CRed}TAILMON Monitoring Mode is unavailable because Tailscale is not fully installed.${CClear}"
+  echo -e "Install Tailscale using option 1 before launching Monitoring Mode."
+  echo ""
+
+  if [ "$1" = "pause" ]; then
+    read -rsp $'Press any key to continue...\n' -n1 key
+  fi
+}
+
 progressbaroverride()
 {
   insertspc=" "
@@ -695,6 +717,40 @@ installts()
           opkg install tailscale_nohf #install special tailscale package for arm7 kernel 2.6
         fi
         echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: Tailscale Entware package installed." >> $logfile
+
+        # The Entware package creates a fresh S06tailscaled service script. Apply the
+        # operating mode already selected in TAILMON so package defaults cannot leave
+        # the saved mode and the actual service configuration out of sync.
+        if [ ! -f "/opt/etc/init.d/S06tailscaled" ]; then
+          echo ""
+          echo -e "${CRed}ERROR: Tailscale service script was not found after installation.${CClear}"
+          echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: S06tailscaled was not found after package installation." >> "$logfile"
+          echo ""
+          read -rsp $'Press any key to continue...\n' -n1 key
+          return 1
+        fi
+
+        echo ""
+        echo -e "${CGreen}Applying selected $tsoperatingmode operating mode...${CClear}"
+        case "$tsoperatingmode" in
+          Userspace)
+            applyuserspacemode
+            ;;
+          Kernel)
+            applykernelmode
+            ;;
+          Custom)
+            applycustommode
+            ;;
+          *)
+            echo -e "${CRed}ERROR: Unknown operating mode: $tsoperatingmode${CClear}"
+            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - ERROR: Unknown operating mode '$tsoperatingmode' after package installation." >> "$logfile"
+            echo ""
+            read -rsp $'Press any key to continue...\n' -n1 key
+            return 1
+            ;;
+        esac
+
         echo ""
         read -rsp $'Press any key to continue...\n' -n1 key
       else
@@ -3116,7 +3172,7 @@ vsetup()
       saveconfig
     fi
 
-    if [ -f "/opt/bin/tailscale" ]; then tsinstalleddisp="Installed"; else tsinstalleddisp="Not Installed"; fi
+    if tailscaleready; then tsinstalleddisp="Installed"; else tsinstalleddisp="Not Installed"; fi
     if [ $exitnode -eq 0 ]; then exitnodedisp="No"; elif [ $exitnode -eq 1 ]; then exitnodedisp="Yes"; fi
     if [ $advroutes -eq 0 ]; then advroutesdisp="No"; elif [ $advroutes -eq 1 ]; then advroutesdisp="Yes ($routes)"; fi
     if [ $accroutes -eq 0 ]; then accroutesdisp="No"; elif [ $accroutes -eq 1 ]; then accroutesdisp="Yes"; fi
@@ -3176,8 +3232,13 @@ vsetup()
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(10)${CClear} : Check for latest updates${CClear}"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}(11)${CClear} : Uninstall TAILMON${CClear}"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  | ${CClear}"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( L)${CClear} : Launch TAILMON in Monitoring Mode (${CGreen}sh /jffs/scripts/tailmon.sh${CClear})"
-    echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( M)${CClear} : Launch TAILMON in Monitoring Mode using SCREEN (${CGreen}sh /jf..ts/tailmon.sh -screen${CClear})"
+    if tailscaleready; then
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( L)${CClear} : Launch TAILMON in Monitoring Mode (${CGreen}sh /jffs/scripts/tailmon.sh${CClear})"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( M)${CClear} : Launch TAILMON in Monitoring Mode using SCREEN (${CGreen}sh /jf..ts/tailmon.sh -screen${CClear})"
+    else
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}( L) : Launch TAILMON in Monitoring Mode              : Unavailable (install Tailscale first)${CClear}"
+      echo -e "${InvGreen} ${CClear} ${InvDkGray}( M) : Launch TAILMON using SCREEN                   : Unavailable (install Tailscale first)${CClear}"
+    fi
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}  | ${CClear}"
     echo -e "${InvGreen} ${CClear} ${InvDkGray}${CWhite}( e)${CClear} : Exit${CClear}"
     echo -e "${InvGreen} ${CClear}"
@@ -3190,7 +3251,7 @@ vsetup()
         read -p "Please select? (1-11, R/S/T/U/D/P/B/F/I/L/M, e=Exit): " SelectSlot
       fi
     else
-      read -p "Please select? (1-11, L/M, e=Exit): " SelectSlot
+      read -p "Please select? (1-11, e=Exit): " SelectSlot
     fi
       case $SelectSlot in
 
@@ -3204,9 +3265,21 @@ vsetup()
 
         [Dd]) echo ""; tsdown;;
 
-        [Ll]) exec sh /jffs/scripts/tailmon.sh -noswitch;;
+        [Ll])
+          if tailscaleready; then
+            exec sh /jffs/scripts/tailmon.sh -noswitch
+          else
+            monitoringblocked pause
+          fi
+          ;;
 
-        [Mm]) exec sh /jffs/scripts/tailmon.sh -screen -now;;
+        [Mm])
+          if tailscaleready; then
+            exec sh /jffs/scripts/tailmon.sh -screen -now
+          else
+            monitoringblocked pause
+          fi
+          ;;
 
         [Oo]) if [ "$tsoperatingmode" == "Custom" ]; then
                 customconfig
@@ -3998,6 +4071,12 @@ fi
 # Check to see if the screen option is being called and run operations normally using the screen utility
 if [ "$1" == "-screen" ]
   then
+    if ! tailscaleready; then
+      clear
+      monitoringblocked
+      exit 1
+    fi
+
     /opt/sbin/screen -wipe >/dev/null 2>&1 # Kill any dead screen sessions
     sleep 1
     ScreenSess=$(/opt/sbin/screen -ls | grep "tailmon" | awk '{print $1}' | cut -d . -f 1)
@@ -4044,6 +4123,13 @@ if [ "$1" == "-noswitch" ]
   then
     clear #last switch before the main program starts
 
+    if ! tailscaleready; then
+      monitoringblocked
+      sleep 1
+      exec sh /jffs/scripts/tailmon.sh -setup
+      exit 1
+    fi
+
     if [ ! -f $config ]; then
       initialsetup
     else
@@ -4064,6 +4150,17 @@ if [ "$1" == "-noswitch" ]
           echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: New TAILMON BETA TRACK v$Bversion available for download/install." >> $logfile
       fi
     fi
+fi
+
+# A direct monochrome launch also enters Monitoring Mode without using -noswitch.
+if [ "$1" == "-bw" ] || [ "$1" == "-now" ]; then
+  if ! tailscaleready; then
+    clear
+    monitoringblocked
+    sleep 1
+    exec sh /jffs/scripts/tailmon.sh -setup
+    exit 1
+  fi
 fi
 
 # -------------------------------------------------------------------------------------------------------------------------
