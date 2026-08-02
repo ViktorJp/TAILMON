@@ -1,5 +1,5 @@
-v1.3.5    - (August 1, 2026)
-          - PATCH: Thanks to @ExtremeFiretop for documenting his horrible user experience getting TAILMON
+v1.3.5b4  - (August 2, 2026)
+          - MINOR: Thanks to @ExtremeFiretop for documenting his horrible user experience getting TAILMON
             up and running. It seems that if you install TAILMON from scratch using the default Tailscale
             binary that comes default with Entware (v1.96.1-1 currently), when going through the setup
             process in TAILMON will cause it to fail to connect to Tailscale services, and fails to even
@@ -16,6 +16,20 @@ v1.3.5    - (August 1, 2026)
             appears that allows you to exit to the setup menu to fix your configuration settings. This
             timer would continue beyond 5 seconds and was not able to be exited, and fixed it so that it
             no longer exceeds 5 seconds.
+          - PATCH: Fixed some of the messaging between stable and beta tracks as they would produce
+            unexpected results during the autoupdate routine.
+          - PATCH: Too many updates to mention added by @ExtremeFiretop, but listed here for documentation
+            purposes: Advanced options 3–7 did nothing before installation, Express Install could falsely
+            report success, Express Install did not verify service startup, Express Install did not verify
+            connection startup, Keep Alive disabled still restarted Tailscale, Pasted text could trigger L
+            and open Nano, Monitoring input was invisible while the loop was refreshing, Pasted
+            authentication text could contaminate the next menu selection, Added a centralized check to
+            confirm tailscale, tailscaled, and S06tailscaled are fully installed., Disabled Monitoring Mode
+            options L and M until Tailscale installation is complete., Added a clear warning when users
+            attempt to launch Monitoring Mode before installation., Guarded direct Monitoring Mode
+            launches, including -noswitch, -screen, -screen -now, and -bw., Prevented creation of useless
+            SCREEN sessions when Tailscale is missing or only partially installed., Preserved normal Setup
+            access so users can install or configure Tailscale first.
 
 v1.3.4    - (July 12, 2026)
           - PATCH: Huge thanks to @nuTTeLLo for his contribution to TAILMON to add an explicit feature
