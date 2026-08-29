@@ -1,3 +1,23 @@
+v1.4.1    - (August 29, 2026)
+          - PATCH: After noticing a disturbing trend of vibe-coded AI duplications of my efforts and my 
+            scripts (and others) being distributed on SNB Forums and Github, I have decided to assert
+            my trademark rights in the project name, and to formally attach naming/attribution terms
+            under GPLv3 §7 to this and future releases, to help cut down on confusion from the user
+            community. For those who want to fork this, or any of my projects, they should thoroughly
+            become familiar with the rules laid out in CONTRIBUTING.md, LICENSE, NOTICE.md, README.md,
+            and TRADEMARK.md. Using the name "TAILMON," alone or combined with any other word,
+            number, or symbol, as the name of a repository, package, release, binary, add-on, or fork,
+            including but not limited to:
+              - TAILMON ZERO
+              - TAILMON PRO / TAILMON+
+              - TAILMON2 / TAILMON X
+              - Tailmon-fork / Tailmon-community
+              - Any stylistic variant, translation, or l33t-speak substitution intended to evoke the
+                same name
+            The standard is likelihood of confusion, not exact match: if a reasonable user browsing SNB
+            Forums, GitHub or a package index would think your project is TAILMON, is an official
+            variant of it, or is endorsed by its Author, then it violates this policy.
+
 v1.4.0    - (August 2, 2026)
           - MINOR: Enough significant changes below in the enhancement of the user experience after first
             installing TAILMON warrants a MINOR version update.

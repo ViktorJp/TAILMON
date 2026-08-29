@@ -1,9 +1,5 @@
 #!/bin/sh
-#
-# BACKUPMON — Copyright (C) Viktor Jaep
-# Licensed under GPLv3 with additional terms: see NOTICE.md and TRADEMARK.md. The name "BACKUPMON" or variations thereof
-# may not be used for modified or forked versions of this software.
-#
+
 # TAILMON (TAILMON.SH) is an all-in-one script that is optimized to install, maintain and monitor a Tailscale service and
 # connection from your Asus-Merlin FW router. It provides the basic steps needed to install and implement a successful
 # connection to your tailnet. It allows for 2 different modes of operation: Kernel and Userspace modes. Depending on your
@@ -11,9 +7,7 @@
 # monitor application that will sit in the background (using the -screen utility), and will restart the Tailscale service
 # should it happen to go down. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi, and @kuki68ster for all their help, input
 # and original testing of this script!
-#
-# Last Modified: 2026-Aug-29
-######################################################################################
+# Last Updated: 2026-Aug-02
 
 #Preferred standard router binaries path
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:$PATH"
@@ -26,7 +20,7 @@ unset LD_LIBRARY_PATH
 export SCREENDIR="${HOME}/.screen"
 
 #Static Variables - please do not change
-version="1.4.1"
+version="1.4.0"
 beta=0                                                               # Beta indicator on/off
 track=0                                                              # Stable (0) / Beta (1) Track subscription
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
