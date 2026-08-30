@@ -5,9 +5,9 @@ v1.4.1    - (August 29, 2026)
             under GPLv3 §7 to this and future releases, to help cut down on confusion from the user
             community. For those who want to fork this, or any of my projects, they should thoroughly
             become familiar with the rules laid out in CONTRIBUTING.md, LICENSE, NOTICE.md, README.md,
-            and TRADEMARK.md. Using the name "TAILMON," alone or combined with any other word,
-            number, or symbol, as the name of a repository, package, release, binary, add-on, or fork,
-            including but not limited to:
+            and TRADEMARK.md. A violation would be using the name "TAILMON," alone or combined with any
+            other word, number, or symbol, as the name of a repository, package, release, binary, add-on,
+            or fork, including but not limited to:
               - TAILMON ZERO
               - TAILMON PRO / TAILMON+
               - TAILMON2 / TAILMON X
