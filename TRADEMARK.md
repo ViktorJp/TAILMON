@@ -4,7 +4,9 @@ TL;DR: Fork the code all you want under GPLv3. Just don't call it TAILMON.
 
 # Why this file exists
 
-TAILMON is free software. You can read it, modify it, run it, and redistribute it under the GPLv3. What you can't do is put "TAILMON" (or something a reasonable person would confuse with it) on a modified version and call it your own. GPLv3 §7 explicitly allows a copyright holder to reserve the project name while still freeing the code, and that's what this repository does. See `NOTICE.md` for the license clause this rests on.
+TAILMON is free software. You can read it, modify it, run it, and redistribute it under the GPLv3. What you can't do is put "TAILMON" (or something a reasonable person would confuse with it) on a modified version and call it your own. 
+
+Two separate legal things back this up, and it's worth keeping them straight: GPLv3 §7 lets a copyright holder attach conditions to the code license, requiring modified versions to be marked/renamed, and declining to bundle any trademark permission in with the code grant (see NOTICE.md for that clause). It does not itself create or grant trademark rights. The claim to the name "TAILMON" rests separately on ordinary trademark law, specifically, unregistered ("common law") trademark rights arising from public use of the name to identify this specific project, independent of the code's license.
 
 # The name "TAILMON"
 
