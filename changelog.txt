@@ -1,3 +1,9 @@
+v1.4.2    - (September 16, 2026)
+          - PATCH: After a few reports from the community (aka @jksmurf), apparently a recent change in
+            IOS or other 3rd party SSH apps seemed to break the cursor location on the main UI. Huge 
+            thanks to @Martinski for checking into this, as he and @rung may have run into a similar
+            issue with their script recently. 
+
 v1.4.1    - (August 29, 2026)
           - PATCH: After noticing a disturbing trend of vibe-coded AI duplications of my efforts and my 
             scripts (and others) being distributed on SNB Forums and Github, I have decided to assert
