@@ -1,7 +1,7 @@
-# TAILMON v1.4.1
+# TAILMON v1.4.2
 Asus-Merlin Tailscale Installer, Configurator and Monitor
 
-Updated: 2026-Aug-29
+Updated: 2026-Sep-16
 
 > **License:** GPLv3 with additional terms (§7c/§7e) — see [`NOTICE.md`](./NOTICE.md). The code is free to fork and modify; the name **TAILMON** is reserved for this project — see [`TRADEMARK.md`](./TRADEMARK.md) before publishing a rebrand or fork.
 
