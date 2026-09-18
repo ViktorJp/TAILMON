@@ -12,7 +12,7 @@
 # should it happen to go down. Many thanks to: @jksmurf, @ColinTaylor, @Aiadi, and @kuki68ster for all their help, input
 # and original testing of this script!
 #
-# Last Modified: 2026-Sep-16
+# Last Modified: 2026-Aug-29
 ######################################################################################
 
 #Preferred standard router binaries path
@@ -26,7 +26,7 @@ unset LD_LIBRARY_PATH
 export SCREENDIR="${HOME}/.screen"
 
 #Static Variables - please do not change
-version="1.4.2"
+version="1.4.1"
 beta=0                                                               # Beta indicator on/off
 track=0                                                              # Stable (0) / Beta (1) Track subscription
 apppath="/jffs/scripts/tailmon.sh"                                   # Static path to the app
@@ -253,30 +253,24 @@ readmenucommand()
   ttydev="$(tty 2>/dev/null)"
 
   if [ -z "$ttydev" ] || [ "$ttydev" = "not a tty" ]; then
-     return 1
+    return 1
   fi
 
-  if IFS= read -r -t 1 key_press < "$ttydev"
-  then
-     menu_line_submitted=1
-     [ "${#key_press}" -eq 1 ]
-     return $?
+  if IFS= read -r -t 1 key_press < "$ttydev"; then
+    menu_line_submitted=1
+    [ "${#key_press}" -eq 1 ]
+    return $?
   fi
 
   key_press=""
   return 1
 }
 
-#---------------------------------------------------------------------------------------#
 # Keep the status and the editable command prompt on the same line. The status text is a
 # fixed-width field (callers zero-pad their numbers to a constant digit width), so timer
 # refreshes can redraw just that field in place at the start of the line without ever
 # reaching into the input area that follows, then restore the cursor, preserving terminal
 # echo, cursor position and backspace editing for whatever the user has typed there.
-#---------------------------------------------------------------------------------------#
-#----------------------------------------#
-# Modified by Martinski W. [2026-Sep-16] #
-#----------------------------------------#
 drawprogressprompt()
 {
   local status_text="$1"
@@ -285,26 +279,20 @@ drawprogressprompt()
   laststatustext="$status_text"
   lastinputtext="$input_text"
 
-  if [ "$progresspromptactive" -ne 1 ]
-  then
-     printf "\e[2K\e[G%b %s\e[2D" "$status_text" "$input_text"
-     progresspromptactive=1
+  if [ "$progresspromptactive" -ne 1 ]; then
+    printf "\033[2K\r%b %s\033[2D" "$status_text" "$input_text"
+    progresspromptactive=1
   else
-     # Save current cursor position, redraw status field, then restore cursor. #
-     printf "\e7\e[G%b\e8" "$status_text"
+    # Save the current input cursor, redraw the fixed-width status field, then restore it.
+    printf "\033[s\r%b\033[u" "$status_text"
   fi
 }
 
-#----------------------------------------------------------------------------------#
-# A complete line was submitted, but it was NOT exactly one-character command.
-# read(1) has moved to the following line, so move back & restore a clean prompt.
-#----------------------------------------------------------------------------------#
-#----------------------------------------#
-# Modified by Martinski W. [2026-Sep-16] #
-#----------------------------------------#
 resetinvalidprogressinput()
 {
-  printf "\e[1A\e[2K\e[G%b %s\e[2D" "$laststatustext" "$lastinputtext"
+  # A complete line was submitted, but it was not exactly one command character.
+  # read(1) has moved to the following line, so move back and restore a clean prompt.
+  printf "\033[1A\33[2K\r%b %s\033[2D" "$laststatustext" "$lastinputtext"
 }
 
 # Discard characters typed or pasted while an interactive command owned the terminal.
