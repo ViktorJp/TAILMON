@@ -387,6 +387,10 @@ ScriptUpdateFromAMTM()
     echo ""
     echo -e "${InvGreen} ${CClear} Downloading latest ${CGreen}TAILMON${CClear}... Please stand by while we add even more Tailscale goodness..."
 
+#Rung: get current track from config
+    if [ -f $config ]; then
+      source $config
+    fi
 #Rung: add amtm update on beta branch
     if [ "$track" = "1" ]
     then
@@ -4734,17 +4738,17 @@ done
 exit 0
 
 #} #2>&1 | tee $LOG | logger -t $(basename $0)[$$]  # uncomment/comment to enable/disable debug mode
-#Signed Tue Nov 17 14:22:55 UTC 2026
+#Signed Tue Nov 17 15:22:25 UTC 2026
 #-----BEGIN SIGNATURE-----
-#BrEm8B77e1JgtNgh+9FY8M3mLMw4aOZXE8IqMbquwmKfzh4FcRa7ynmplUY3f3Q2
-#jg2vfgRigrw2m4MfIotWMaN+mSrhzZiVFiOqEDAsDTNrIG+Fw+mz/RN4MsAt66g/
-#HjtGXoeqykmOxoA7JN5J6YH3iCRTZ4cQ2vyvgUwNOxIpA05Lzjv6iRfJxbLxzgSj
-#j7OdvYbpYP0QIf2HxWiXbPNEdfDfLRLzEZhGusvVwgSeEFEOaSzjz35IH7gm6DVM
-#op0rffN9sH4z5ZG+OVWDhIwN2mx8g49YM26M15VplV5IKRoOORtPb2HOTmkVoK87
-#R6uktMk8+lC+lV3KuBTacGHCdCZdYXDWUI8ph1SNUOhYU04KTl9vZkuRJoBfaefe
-#8YF99wZizjVvYwW49Xa4dRsvoEY27uK6yiwuSxQ6EyAUUpw4ROra5n8rupBZiMii
-#Y13GyVWJglRJaps7CPCxAuKvc15DjD/oMhx0CyvJijxhwJuqJorOgSbZRSX77xP/
-#94wGMscRyVDCj2je1zh4LD26T0l8HtoLckTbPpZLVKoNJqAst11A/9pqM9lyYhtv
-#/0+GI7u+7xFgBzwN/syS6HhXbvrwt0b7b/pNePpbArxCyrfIyTKumPT4bfQqSCmE
-#Vy1TQMhrPEcTu/GKYBa4S2ERI1KFqmIBLCCA0123JEA=
+#Hc8W/TD+QB8gOT9dgxiS+tJifX1zaq8GCauuXQkeDyiyzlWp+B0n0ASt/yPx+1Y8
+#WvUrrNrcDK06/hGkae/5fi9V0iBvpi5aBx3+mlbl9MoqtKA3K9SFjOTTONSpmxJm
+#GAJ1Sivga+RQ3NTaItoz8R9poVLBEJDo4PY3VFq+5vZD82w5umnHU490Kg8QUlOC
+#I3zbsqcHoW6gLk3DnyAnulhf09vUYUjDaj+KWrDtFJ5henuk+C2Dz6MCg8VPeGaN
+#sMnIsY5otyLntBVI+UMy+DfW3xZcnghYJkIKhH5ltpL2xNFVhhzhlW6IuUHa/qb7
+#NxJsEvn2n5D7ySXH6FHfnvMRPbg70/xtyfbtkI8mHur5GgvDGd37lU/C5CLgfOR0
+#/1He04uejQwy6On4AkXhO+SRAq3zFX7wcCG3nCqZZ4SGNnIoTieImZhLAtd37jBN
+#q+gP3qfK7BA5g9u643YG43HByLkkhwoArs0ZV/Lv+zAlPFqEB9hk+vOdZrxOpZMc
+#YVGsP2wOafX7P3zuUyfb7VLywtEwsTQ6SsUz5SkDlF6iV7ZUnn+bILAh5jL5dVub
+#m7740LE/ak+ENoSEFKiRKzCAgQQH+pUwJYXQSOp8pEvt5dXLg8S89zmaCV8siTZ4
+#kdJ++sGyuFav2YMaP1sn8asCGy5FDcSzPdsiKjTlEQQ=
 #-----END SIGNATURE-----
