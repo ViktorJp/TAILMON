@@ -103,6 +103,9 @@ readonly shScriptFileUnverified="/tmp/tailmon.sh"
 readonly publickey1="/tmp/pubknock1.pem"
 readonly publickey2="/tmp/pubknock2.pem"
 readonly signblock="-----BEGIN SIGNATURE-----"
+readonly developURL="https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh"
+readonly mainURL="https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh"
+readonly ScriptName="/jffs/scripts/tailmon.sh"
 
 
 # -------------------------------------------------------------------------------------------------------------------------
@@ -335,7 +338,7 @@ _Download_And_Verify_()
    then return 1
    fi
 
-   repo="$1"
+   repofile="$1"
    script="$2"
 
    curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "$repofile" -o "$shScriptFileUnverified"
@@ -387,13 +390,12 @@ ScriptUpdateFromAMTM()
 #Rung: add amtm update on beta branch
     if [ "$track" = "1" ]
     then
-        _Download_And_Verify_ "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" "/jffs/scripts/tailmon.sh"
+        _Download_And_Verify_ "$developURL" "$ScriptName"
     else
 #Rung: Update for verified downloads
 #       curl --silent --retry 3 "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-        _Download_And_Verify_ "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" "/jffs/scripts/tailmon.sh"
+        _Download_And_Verify_ "$mainURL" "$ScriptName"
     fi
-
 
     DLsuccess=$?
     if [ "$DLsuccess" -eq 0 ]; then
@@ -1487,17 +1489,16 @@ autoupdate()
       if [ "$localver" != "$serverver" ]
         then
           printf "\33[2K\r"
-
           if [ "$track" = "1" ]
-            then
-            printf "${CGreen}\r[Downloading New TAILMON BETA v$serverver]\n"
+          then
+              printf "${CGreen}\r[Downloading New TAILMON BETA v$serverver]\n"
 #Rung: Update for verified downloads
-#           curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-            _Download_And_Verify_ "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" "/jffs/scripts/tailmon.sh"
+#             curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+                _Download_And_Verify_ "$developURL" "$ScriptName"
           else
-            printf "${CGreen}\r[Downloading New TAILMON STABLE v$serverver]\n"
-#           curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-            _Download_And_Verify_ "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" "/jffs/scripts/tailmon.sh"
+              printf "${CGreen}\r[Downloading New TAILMON STABLE v$serverver]\n"
+#             curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+              _Download_And_Verify_ "$mainURL" "$ScriptName"
           fi
 
           echo -e "${CClear}"
@@ -3811,7 +3812,7 @@ vupdate()
             echo -e "\nDownloading TAILMON ${CGreen}STABLE${CClear}"
 #Rung: Update for verified downloads
 #            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-            _Download_And_Verify_ "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" "/jffs/scripts/tailmon.sh"
+            _Download_And_Verify_ "$mainURL" "$ScriptName"
 #Rung: add check for failed download
             if [ "$?" -ne 0 ]; then
 		echo "Download failed!"
@@ -3864,7 +3865,7 @@ vupdate()
             echo -e "\nDownloading TAILMON ${CGreen}STABLE${CClear}"
 #Rung: Update for verified downloads
 #            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-            _Download_And_Verify_ "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" "/jffs/scripts/tailmon.sh"
+            _Download_And_Verify_ "$mainURL" "$ScriptName"
 #Rung: add check for failed download
             if [ "$?" -ne 0 ]; then
 		echo "Download failed!"
@@ -3920,7 +3921,7 @@ vupdate()
               echo -e "\nDownloading TAILMON ${CGreen}BETA${CClear}"
 #Rung: Update for verified downloads
 #             curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-              _Download_And_Verify_ "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" "/jffs/scripts/tailmon.sh"
+              _Download_And_Verify_ "$developURL" "$ScriptName"
 #Rung: add check for failed download
               if [ "$?" -ne 0 ]; then
 	          echo "Download failed!"
@@ -3974,7 +3975,7 @@ vupdate()
               echo -e "\nDownloading TAILMON ${CGreen}BETA${CClear}"
 #Rung: Update for verified downloads
 #             curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-              _Download_And_Verify_ "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" "/jffs/scripts/tailmon.sh"
+              _Download_And_Verify_ "$developURL" "$ScriptName"
 #Rung: add check for failed download
               if [ "$?" -ne 0 ]; then
 	          echo "Download failed!"
@@ -4733,17 +4734,17 @@ done
 exit 0
 
 #} #2>&1 | tee $LOG | logger -t $(basename $0)[$$]  # uncomment/comment to enable/disable debug mode
-#Signed Mon Nov 16 23:09:14 UTC 2026
+#Signed Tue Nov 17 14:22:55 UTC 2026
 #-----BEGIN SIGNATURE-----
-#gg53+xrWEG9u9VCl+ka1+nxrLG9CgADbSAGBo3kRUGV4bxGHvui00P8Z3uWuzJWR
-#o7CFqdQISkhLWWDFozkhxMoOHZvYuIBQt87NRAk1/ae4BmKHn/B39ARy20JHYu9N
-#CXvhWzIdDXx2x6Q2d20jH3IzSp/iwoiRi1yGS8X+WHEnq6fe4MmdUyjLV7P/p4OQ
-#LGD0jn3diB3imeg3JeqSI5DH/19CqFNWW5zxvCUQjG7Pv7dxVN2pRkLXd7OEoo2c
-#Sv8BLAGlbr/Dmmby1JaBysWtY7noUkni/zE4kedXose5iCGYCbbAsxkQsj7hHq9e
-#My7XQrGHoafF4CfDiqGdsUm7TlQAyfwouj+l//Eef7DDcMiqt58U/KYTDSzZiNC+
-#M5KVJXb0mZGqd5/IkbCfOmvLNOuNKtY5V5dXEVegLzaUt7G5ReZ26bF3gF1Un8W6
-#7unWR4rCHqyVWQVnFTHVqtLKrvG5qhAzJOw+peR08ozxUhbtCnRYls5PvsBwyijb
-#ND+gZLMhZ0A0bNgFFHsONmNvtYZbDzQYPgmFtj+uhWhru+qAB1y8PVlXz2w3LyUi
-#UDjoxQcQexaMOcsbtY+YZEkP5jC/WFEya8CNi4fJv7yt45rCUlbKADBwjE7ZKoo/
-#6+qKxvr9W+0TZNg+IPEl1kVAFZYgfCL1E3GhTno0fY0=
+#BrEm8B77e1JgtNgh+9FY8M3mLMw4aOZXE8IqMbquwmKfzh4FcRa7ynmplUY3f3Q2
+#jg2vfgRigrw2m4MfIotWMaN+mSrhzZiVFiOqEDAsDTNrIG+Fw+mz/RN4MsAt66g/
+#HjtGXoeqykmOxoA7JN5J6YH3iCRTZ4cQ2vyvgUwNOxIpA05Lzjv6iRfJxbLxzgSj
+#j7OdvYbpYP0QIf2HxWiXbPNEdfDfLRLzEZhGusvVwgSeEFEOaSzjz35IH7gm6DVM
+#op0rffN9sH4z5ZG+OVWDhIwN2mx8g49YM26M15VplV5IKRoOORtPb2HOTmkVoK87
+#R6uktMk8+lC+lV3KuBTacGHCdCZdYXDWUI8ph1SNUOhYU04KTl9vZkuRJoBfaefe
+#8YF99wZizjVvYwW49Xa4dRsvoEY27uK6yiwuSxQ6EyAUUpw4ROra5n8rupBZiMii
+#Y13GyVWJglRJaps7CPCxAuKvc15DjD/oMhx0CyvJijxhwJuqJorOgSbZRSX77xP/
+#94wGMscRyVDCj2je1zh4LD26T0l8HtoLckTbPpZLVKoNJqAst11A/9pqM9lyYhtv
+#/0+GI7u+7xFgBzwN/syS6HhXbvrwt0b7b/pNePpbArxCyrfIyTKumPT4bfQqSCmE
+#Vy1TQMhrPEcTu/GKYBa4S2ERI1KFqmIBLCCA0123JEA=
 #-----END SIGNATURE-----
