@@ -97,6 +97,19 @@ CClear="\e[0m"
 # To support automatic script updates from AMTM #
 doScriptUpdateFromAMTM=true
 
+
+#Rung: Added for signature verification
+readonly shScriptFileUnverified="/tmp/tailmon.sh"
+readonly publickey1="/tmp/pubknock1.pem"
+readonly publickey2="/tmp/pubknock2.pem"
+readonly signblock="-----BEGIN SIGNATURE-----"
+#Setting to fork repository to test verify download
+#readonly developURL="https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh"
+readonly developURL="https://raw.githubusercontent.com/Rung-Asus/TAILMON/develop/tailmon.sh"
+readonly mainURL="https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh"
+readonly ScriptName="/jffs/scripts/tailmon.sh"
+
+
 # -------------------------------------------------------------------------------------------------------------------------
 # FUNCTIONS BEGIN
 # -------------------------------------------------------------------------------------------------------------------------
@@ -203,9 +216,168 @@ spinner()
   printf "\r"
 }
 
+
+#Rung new routine for verified downloads
+_VerifySignature_()
+{
+#Verify signature embedded in file sent as parameter with either of two known public keys
+
+#Export public keys
+cat <<EOF > $publickey1
+-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAzPSyYvz9gHG1VND2E1o7
+uAsM77V1KobSG+Nq8hwinfO99vmho6PUW/lkCP75Ia3gF0L/dW53vuJgKN/X/IH6
+7wyjEzV5ua+H9AbBznDSO7Fg3kZQh2Pe87RBRmL6FA25mwqw9wQU4NPAjqx+1n7h
+LDUBqfRkrPsKLzmysf66KT9tyuXkqJPRuRtsjasXeD+by1sIZJNc0VFVxcsJXXRW
+IV3ktEOxNfs+j2Dn9c8UasPZw6pXFWDgc60JAe+8H97W/fuje+Ex2vboeiVp+mtR
+bJKcStLEsGWa+JH7Z9Ik7DodK45/S1G8oKcrxd4e5QV0fWGGCfuDUt6dTKx47RDJ
+93oUV1AttnraJUw91sOTbvLlJCGC58VqDrLdfp/8mpxsBjrk4933ud5uVNHDMv/7
+YZodHeXNOzjYNJ/t2VJBOhCH0frLRUf4zEZYxb3LWjfuA7haEgkr70LFE8JfFZ0Q
+pDyobkYHaeiNxsZi4q1skC62txPszB4Z2k36xQP77N5rNdlTewvQIuBOWRO/MB1x
+mmYkHJhe2ygyDBoEoftuBUK5WuIsWp9aMecX1Cszrgx4oSgSEYtdRriA18aXHFj0
+//D4dpD/4kSDZnBHnxXiBCwVhp0I5z58KwYW5J95tnffIwI4PteqGDGJS2mgA66b
+nutcMLSE3AAnkD1/PCQzjusCAwEAAQ==
+-----END PUBLIC KEY-----
+EOF
+cat <<EOF > $publickey2
+-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAksTt+rKwlpYfE+jr9QuI
+mne1Y69v81cENTWbmEQ9tLaeNVBhy3eVtPIAa48tOBaZWwi8aqUqfF1fgHIccOKX
+SXGM9t+uUmCbLdb7syMcrGlOczA+K/PJo1LfIbjyLZ25M4eAb1XbP5GgF7xgY43o
+oRlO6digOXlBV0P7AxMlFYhvMN7EjPDjx7/LeIMHcTkOvI+KSsiA1PHyo9kx2+lV
+sa7ich/XWt3TgH1TLWTdvmivX5jB8oMr9wms0rHb6BN5zaAJzSmohO1CTvfbmyXf
+fsR+1Xmh4H1ZoEausI43E5O6Va530BKbfH3I+KdrkbbPpZ7Gtbpcsto4P1N8lJUy
+bvIQW3adXzq1lRZaOwk8BB82QTy5FxD8U2d6dBnTDIp+zcp73vPGTQuOsN5LvLjP
+OU3DSRRVx0/2v2frWX8bn+pFQJcIAK3AzVCgyjxIJid+sfsPn23k2BV47dcAEvFU
+Olph+Gcnfo+Wo13U+cGQqFBdoDVEHYpU6FQsQekWyZt+8r9WjBmNyaWmdp3oUSZ8
+zANTHYO8dR0xMM2KhXdV3emiM3rkSNEMBYrtXgXtFKxopLv2fJfMIyQBT1X3uoCi
+K9qFBRCPeFW+G7oVuMlDi99IG0yne6hRaXepjaQbcCzsohIrZkmpZVOnZaNfiHYu
+HM01xOSdPkXCmylBjpgrJfUCAwEAAQ==
+-----END PUBLIC KEY-----
+EOF
+
+#File to be verified with embedded signature
+local file=$1
+
+local silentARG=""
+
+if [ $# -gt 1 ] && [ -n "$2" ]
+then
+        silentARG="$2"
+fi
+
+if ! [ -f $file ]
+then
+        [ "$silentARG" != "silent" ] && \
+        echo "Error! File $file not found."
+        return 1
+fi
+
+#Temporary files
+local bn=$(basename $1)
+local sigfile="/tmp/$bn.sig"
+local sigfile2="/tmp/$bn.sig2"
+local origfile="/tmp/unsigned_$bn"
+
+#Locate signature block in file
+local line=$(grep -n -F "#$signblock" $file | head -n1 | cut -d: -f1)
+if [ -z $line ]; then
+        [ "$silentARG" != "silent" ] && \
+        echo "Error! Signature block not found."
+        return 1
+fi
+local offset=$(head -n $((line - 1)) $file | wc -c)
+
+#Separate out original file and signing block
+head -c $offset $file > $origfile
+tail -c +$((offset + 1)) $file > $sigfile
+
+#remove comment char # from signing block
+sed -i 's/^#// ' $sigfile
+
+#Protect against fake signing block with unallowed embedded code
+#Re-add comment chars to new signing block
+sed 's/^/#/' $sigfile > $sigfile2
+#Verify original + new signing block equals signed file
+if ! cat $origfile $sigfile2 | cmp -s - $file; then
+        [ "$silentARG" != "silent" ] && \
+        echo "Bad signature block"
+        return 1
+fi
+
+#Convert base64 signature to binary
+openssl base64 -d -in $sigfile -out $sigfile2
+
+#Verify signature of unsigned file with public key 1 (PSS padding)
+#openssl dgst -verify $publickey1 -keyform PEM -sha256 -signature $sigfile2 -binary $origfile >/dev/null 2>&1
+openssl dgst -verify $publickey1 -keyform PEM -sha256 -sigopt rsa_padding_mode:pss \
+	-sigopt rsa_pss_saltlen:32 -signature $sigfile2 $origfile >/dev/null 2>&1
+
+if [ $? -eq 0 ]; then
+        [ "$silentARG" != "silent" ] && \
+        echo "Good signature with key 1"
+else
+        #Verify signature of unsigned file with public key 2 (PSS paddung)
+        #openssl dgst -verify $publickey2 -keyform PEM -sha256 -signature $sigfile2 -binary $origfile >/dev/null 2>&1
+	openssl dgst -verify $publickey2 -keyform PEM -sha256 -sigopt rsa_padding_mode:pss \
+		-sigopt rsa_pss_saltlen:32 -signature $sigfile2 $origfile >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+                [ "$silentARG" != "silent" ] && \
+                echo "Good signature with key 2"
+        else
+                [ "$silentARG" != "silent" ] && \
+                echo "Verification failed!"
+                return 1
+        fi
+fi
+return 0
+}
+
+
+#Rung: new subroutine for verified downloads
+_Download_And_Verify_()
+{
+   local repofile
+   local script
+   local DLsuccess
+
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then return 1
+   fi
+
+   repofile="$1"
+   script="$2"
+
+   curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "$repofile" -o "$shScriptFileUnverified"
+   DLsuccess=$?
+
+   if [ "$DLsuccess" -ne 0 ]; then
+   	return "$DLsuccess"
+   fi
+
+#Rung: Are we on develop branch (delete check once on stable branch code is signed)
+    if [ "$track" = "1" ]
+    then
+       if _VerifySignature_ "$shScriptFileUnverified" silent
+       then
+		printf "Verify Status: ${CGreen}Valid Signature${CClear}\n"
+       else
+       		printf "Verify Status: ${CRed}BAD OR MISSING SIGNATURE!${CClear}\n"
+		return 1
+       fi
+     else
+     	printf "Verify Status: ${CRed}BYPASSED${CClear}\n"
+     fi
+
+   cp "$shScriptFileUnverified" "$script"
+   chmod 755 "$script"
+   return 0
+}
+
 ##-------------------------------------------##
 ## Borrwed from ExtremeFiretop [2026-Apr-11] ##
 ##-------------------------------------------##
+
 ScriptUpdateFromAMTM()
 {
     if ! "$doScriptUpdateFromAMTM"
@@ -221,7 +393,21 @@ ScriptUpdateFromAMTM()
     # Force a TAILMON download and update
     echo ""
     echo -e "${InvGreen} ${CClear} Downloading latest ${CGreen}TAILMON${CClear}... Please stand by while we add even more Tailscale goodness..."
-    curl --silent --retry 3 "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+
+#Rung: get current track from config
+    if [ -f $config ]; then
+      source $config
+    fi
+#Rung: add amtm update on beta branch
+    if [ "$track" = "1" ]
+    then
+        _Download_And_Verify_ "$developURL" "$ScriptName"
+    else
+#Rung: Update for verified downloads
+#       curl --silent --retry 3 "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+        _Download_And_Verify_ "$mainURL" "$ScriptName"
+    fi
+
     DLsuccess=$?
     if [ "$DLsuccess" -eq 0 ]; then
       echo -e "${InvGreen} ${CClear} TAILMON Download/Update Success."
@@ -233,6 +419,8 @@ ScriptUpdateFromAMTM()
 
     return "$DLsuccess"
 }
+
+
 
 # -------------------------------------------------------------------------------------------------------------------------
 # Preparebar and Progressbar is a script that provides a nice progressbar to show script activity
@@ -391,6 +579,8 @@ progressbaroverride()
           [Cc]) vsetup;;
           [Dd]) tsdown;;
           [Ee]) logoNMexit; echo -e "${CClear}\n"; exit 0;;
+#Rung: Added "X" detach option
+          [Xx]) /opt/sbin/screen -S tailmon -X detach;;
           [Kk]) vconfig;;
           [Ll]) vlogs;;
           [Mm]) timerloopconfig;;
@@ -1310,14 +1500,16 @@ autoupdate()
       if [ "$localver" != "$serverver" ]
         then
           printf "\33[2K\r"
-
           if [ "$track" = "1" ]
-            then
-            printf "${CGreen}\r[Downloading New TAILMON BETA v$serverver]\n"
-            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+          then
+              printf "${CGreen}\r[Downloading New TAILMON BETA v$serverver]\n"
+#Rung: Update for verified downloads
+#             curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+                _Download_And_Verify_ "$developURL" "$ScriptName"
           else
-            printf "${CGreen}\r[Downloading New TAILMON STABLE v$serverver]\n"
-            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+              printf "${CGreen}\r[Downloading New TAILMON STABLE v$serverver]\n"
+#             curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+              _Download_And_Verify_ "$mainURL" "$ScriptName"
           fi
 
           echo -e "${CClear}"
@@ -3629,13 +3821,22 @@ vupdate()
           [Yy])
             echo ""
             echo -e "\nDownloading TAILMON ${CGreen}STABLE${CClear}"
-            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-            echo ""
-            echo -e "Download successful!${CClear}"
-            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON update successfully downloaded and installed." >> $logfile
-            echo ""
-            read -rsp $'Press any key to restart TAILMON...\n' -n1 key
-            exec /jffs/scripts/tailmon.sh -setup
+#Rung: Update for verified downloads
+#            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+            _Download_And_Verify_ "$mainURL" "$ScriptName"
+#Rung: add check for failed download
+            if [ "$?" -ne 0 ]; then
+		echo "Download failed!"
+                read -rsp $'Press any key to exit Update Utility...\n' -n1 key
+                return
+            else
+                echo ""
+                echo -e "Download successful!${CClear}"
+                echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON update successfully downloaded and installed." >> $logfile
+                echo ""
+                read -rsp $'Press any key to restart TAILMON...\n' -n1 key
+                exec /jffs/scripts/tailmon.sh -setup
+            fi
             ;;
 
           [Nn])
@@ -3673,13 +3874,22 @@ vupdate()
           [Yy])
             echo ""
             echo -e "\nDownloading TAILMON ${CGreen}STABLE${CClear}"
-            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-            echo ""
-            echo -e "Download successful!${CClear}"
-            echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON update successfully downloaded and installed." >> $logfile
-            echo ""
-            read -rsp $'Press any key to restart TAILMON...\n' -n1 key
-            exec /jffs/scripts/tailmon.sh -setup
+#Rung: Update for verified downloads
+#            curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+            _Download_And_Verify_ "$mainURL" "$ScriptName"
+#Rung: add check for failed download
+            if [ "$?" -ne 0 ]; then
+		echo "Download failed!"
+                read -rsp $'Press any key to exit Update Utility...\n' -n1 key
+                return
+            else
+                echo ""
+                echo -e "Download successful!${CClear}"
+                echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON update successfully downloaded and installed." >> $logfile
+                echo ""
+                read -rsp $'Press any key to restart TAILMON...\n' -n1 key
+                exec /jffs/scripts/tailmon.sh -setup
+            fi
             ;;
 
           [Nn])
@@ -3720,13 +3930,22 @@ vupdate()
             [Yy])
               echo ""
               echo -e "\nDownloading TAILMON ${CGreen}BETA${CClear}"
-              curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-              echo ""
-              echo -e "Download successful!${CClear}"
-              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON BETA update successfully downloaded and installed." >> $logfile
-              echo ""
-              read -rsp $'Press any key to restart TAILMON...\n' -n1 key
-              exec /jffs/scripts/tailmon.sh -setup
+#Rung: Update for verified downloads
+#             curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+              _Download_And_Verify_ "$developURL" "$ScriptName"
+#Rung: add check for failed download
+              if [ "$?" -ne 0 ]; then
+	          echo "Download failed!"
+                  read -rsp $'Press any key to exit Update Utility...\n' -n1 key
+                  return
+              else
+                  echo ""
+                  echo -e "Download successful!${CClear}"
+                  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON BETA update successfully downloaded and installed." >> $logfile
+                  echo ""
+                  read -rsp $'Press any key to restart TAILMON...\n' -n1 key
+                  exec /jffs/scripts/tailmon.sh -setup
+              fi
               ;;
 
             [Nn])
@@ -3765,13 +3984,22 @@ vupdate()
             [Yy])
               echo ""
               echo -e "\nDownloading TAILMON ${CGreen}BETA${CClear}"
-              curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
-              echo ""
-              echo -e "Download successful!${CClear}"
-              echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON BETA update successfully downloaded and installed." >> $logfile
-              echo ""
-              read -rsp $'Press any key to restart TAILMON...\n' -n1 key
-              exec /jffs/scripts/tailmon.sh -setup
+#Rung: Update for verified downloads
+#             curl --silent --retry 3 --connect-timeout 3 --max-time 5 --retry-delay 1 --retry-all-errors --fail "https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh" -o "/jffs/scripts/tailmon.sh" && chmod 755 "/jffs/scripts/tailmon.sh"
+              _Download_And_Verify_ "$developURL" "$ScriptName"
+#Rung: add check for failed download
+              if [ "$?" -ne 0 ]; then
+	          echo "Download failed!"
+                  read -rsp $'Press any key to exit Update Utility...\n' -n1 key
+                  return
+              else
+                  echo ""
+                  echo -e "Download successful!${CClear}"
+                  echo -e "$(date +'%b %d %Y %X') $($timeoutcmd$timeoutsec nvram get lan_hostname) TAILMON[$$] - INFO: TAILMON BETA update successfully downloaded and installed." >> $logfile
+                  echo ""
+                  read -rsp $'Press any key to restart TAILMON...\n' -n1 key
+                  exec /jffs/scripts/tailmon.sh -setup
+              fi
               ;;
 
             [Nn])
@@ -4040,7 +4268,8 @@ fi
 
 # Check and see if an invalid commandline option is being used
 # Rung: adding email switch
-if [ "$1" == "-h" ] || [ "$1" == "-help" ] || [ "$1" == "-setup" ] || [ "$1" == "-bw" ] || [ "$1" == "-noswitch" ] || [ "$1" == "-screen" ] || [ "$1" == "-now" ] || [ "$1" == "-email" ] || [ "$1" == "-autoupdate" ]
+# Rung: adding verify switch
+if [ "$1" == "-h" ] || [ "$1" == "-help" ] || [ "$1" == "-setup" ] || [ "$1" == "-bw" ] || [ "$1" == "-noswitch" ] || [ "$1" == "-screen" ] || [ "$1" == "-now" ] || [ "$1" == "-email" ] || [ "$1" == "-autoupdate" ] || [ "$1" == "-verify" ]
   then
     clear
   else
@@ -4085,6 +4314,21 @@ if [ "$1" == "-email" ]
   sendmessage 1 "Tailmon email requested"
   exit 0
 fi
+
+# Rung: added verify switch
+if [ "$1" = "-verify" ]
+then
+        if [ $# -lt 2 ] || [ -z "$2" ]
+        then
+                file=$0
+        else
+                file=$2
+        fi
+        echo "Verifying signature of file: $file"
+        _VerifySignature_ $file
+        exit $?
+fi
+
 
 # Check to see if autoupdate is being called
 if [ "$1" == "-autoupdate" ]
@@ -4501,3 +4745,17 @@ done
 exit 0
 
 #} #2>&1 | tee $LOG | logger -t $(basename $0)[$$]  # uncomment/comment to enable/disable debug mode
+#Signed Sat Nov 21 16:07:15 UTC 2026
+#-----BEGIN SIGNATURE-----
+#J3BSrUxddDxjQOtxommGy6XBjBRF+IM2hrpgJTSZM1MngWjs0/WAYG1I2YkYL5nW
+#LeNxE/tbGfDuefCuTcHd62vN4YlwRnEEPH4upWGD8pLugPdGkGbys2dapvLc/mu+
+#HmMK4+LoZ6Dpx85WNOGePs16GlYFDXDAXjeOjbJBjika9q68ZtiBXgKDlX073MoC
+#w5W3doHpdsLmJotJzldxtJsdg9BKGf49VIYc/R2R+mGk3XrNSuvbkx5mffXPLvRu
+#PaBGJk9BHI4yqM1Hzdc0y5c6MCZV/lXJC7elWiUGoAzWmQGF5vMtT6H01vg8Wv89
+#0mwPpBphdjx0gRKzy/RP32GmmiFMJh5RtoI3c5IGpco8eNiVTjhRCXLMS+guPIFk
+#XiKvq0T1dxnX3QICtywKv+NoIJ6xcNfQaK98ixuDwBS2lM0Rao6j483RUeRGbTxn
+#mSe0gIah6i23yF4oRu9YCvhF2PnDhM7M9ltkArb57A6Skmb9TI8mU566/6R0hGZ0
+#LFzTSw0wchY7T314O2h43Kg0ipKj8VARC2VI/heZ3AIBxYC4b/uvAC6OZ0VSvriR
+#DCKxlytKr6tbaepYt1TmWXYlZc+qpP1KIaWavFoWh7R9xTRRKpoUAQoQWSET+jVG
+#msTFmheifevnNh8mzn8bmsk0GWLClMIwqMDwTFk/jtU=
+#-----END SIGNATURE-----
