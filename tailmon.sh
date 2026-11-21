@@ -103,7 +103,9 @@ readonly shScriptFileUnverified="/tmp/tailmon.sh"
 readonly publickey1="/tmp/pubknock1.pem"
 readonly publickey2="/tmp/pubknock2.pem"
 readonly signblock="-----BEGIN SIGNATURE-----"
-readonly developURL="https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh"
+#Setting to fork repository to test verify download
+#readonly developURL="https://raw.githubusercontent.com/ViktorJp/TAILMON/develop/tailmon.sh"
+readonly developURL="https://raw.githubusercontent.com/Rung-Asus/TAILMON/develop/tailmon.sh"
 readonly mainURL="https://raw.githubusercontent.com/ViktorJp/TAILMON/main/tailmon.sh"
 readonly ScriptName="/jffs/scripts/tailmon.sh"
 
@@ -306,14 +308,19 @@ fi
 #Convert base64 signature to binary
 openssl base64 -d -in $sigfile -out $sigfile2
 
-#Verify signature of unsigned file with public key 1
-openssl dgst -verify $publickey1 -keyform PEM -sha256 -signature $sigfile2 -binary $origfile >/dev/null 2>&1
+#Verify signature of unsigned file with public key 1 (PSS padding)
+#openssl dgst -verify $publickey1 -keyform PEM -sha256 -signature $sigfile2 -binary $origfile >/dev/null 2>&1
+openssl dgst -verify $publickey1 -keyform PEM -sha256 -sigopt rsa_padding_mode:pss \
+	-sigopt rsa_pss_saltlen:32 -signature $sigfile2 $origfile >/dev/null 2>&1
+
 if [ $? -eq 0 ]; then
         [ "$silentARG" != "silent" ] && \
         echo "Good signature with key 1"
 else
-        #Verify signature of unsigned file with public key 2
-        openssl dgst -verify $publickey2 -keyform PEM -sha256 -signature $sigfile2 -binary $origfile >/dev/null 2>&1
+        #Verify signature of unsigned file with public key 2 (PSS paddung)
+        #openssl dgst -verify $publickey2 -keyform PEM -sha256 -signature $sigfile2 -binary $origfile >/dev/null 2>&1
+	openssl dgst -verify $publickey2 -keyform PEM -sha256 -sigopt rsa_padding_mode:pss \
+		-sigopt rsa_pss_saltlen:32 -signature $sigfile2 $origfile >/dev/null 2>&1
         if [ $? -eq 0 ]; then
                 [ "$silentARG" != "silent" ] && \
                 echo "Good signature with key 2"
@@ -4738,17 +4745,17 @@ done
 exit 0
 
 #} #2>&1 | tee $LOG | logger -t $(basename $0)[$$]  # uncomment/comment to enable/disable debug mode
-#Signed Tue Nov 17 15:22:25 UTC 2026
+#Signed Sat Nov 21 16:07:15 UTC 2026
 #-----BEGIN SIGNATURE-----
-#Hc8W/TD+QB8gOT9dgxiS+tJifX1zaq8GCauuXQkeDyiyzlWp+B0n0ASt/yPx+1Y8
-#WvUrrNrcDK06/hGkae/5fi9V0iBvpi5aBx3+mlbl9MoqtKA3K9SFjOTTONSpmxJm
-#GAJ1Sivga+RQ3NTaItoz8R9poVLBEJDo4PY3VFq+5vZD82w5umnHU490Kg8QUlOC
-#I3zbsqcHoW6gLk3DnyAnulhf09vUYUjDaj+KWrDtFJ5henuk+C2Dz6MCg8VPeGaN
-#sMnIsY5otyLntBVI+UMy+DfW3xZcnghYJkIKhH5ltpL2xNFVhhzhlW6IuUHa/qb7
-#NxJsEvn2n5D7ySXH6FHfnvMRPbg70/xtyfbtkI8mHur5GgvDGd37lU/C5CLgfOR0
-#/1He04uejQwy6On4AkXhO+SRAq3zFX7wcCG3nCqZZ4SGNnIoTieImZhLAtd37jBN
-#q+gP3qfK7BA5g9u643YG43HByLkkhwoArs0ZV/Lv+zAlPFqEB9hk+vOdZrxOpZMc
-#YVGsP2wOafX7P3zuUyfb7VLywtEwsTQ6SsUz5SkDlF6iV7ZUnn+bILAh5jL5dVub
-#m7740LE/ak+ENoSEFKiRKzCAgQQH+pUwJYXQSOp8pEvt5dXLg8S89zmaCV8siTZ4
-#kdJ++sGyuFav2YMaP1sn8asCGy5FDcSzPdsiKjTlEQQ=
+#J3BSrUxddDxjQOtxommGy6XBjBRF+IM2hrpgJTSZM1MngWjs0/WAYG1I2YkYL5nW
+#LeNxE/tbGfDuefCuTcHd62vN4YlwRnEEPH4upWGD8pLugPdGkGbys2dapvLc/mu+
+#HmMK4+LoZ6Dpx85WNOGePs16GlYFDXDAXjeOjbJBjika9q68ZtiBXgKDlX073MoC
+#w5W3doHpdsLmJotJzldxtJsdg9BKGf49VIYc/R2R+mGk3XrNSuvbkx5mffXPLvRu
+#PaBGJk9BHI4yqM1Hzdc0y5c6MCZV/lXJC7elWiUGoAzWmQGF5vMtT6H01vg8Wv89
+#0mwPpBphdjx0gRKzy/RP32GmmiFMJh5RtoI3c5IGpco8eNiVTjhRCXLMS+guPIFk
+#XiKvq0T1dxnX3QICtywKv+NoIJ6xcNfQaK98ixuDwBS2lM0Rao6j483RUeRGbTxn
+#mSe0gIah6i23yF4oRu9YCvhF2PnDhM7M9ltkArb57A6Skmb9TI8mU566/6R0hGZ0
+#LFzTSw0wchY7T314O2h43Kg0ipKj8VARC2VI/heZ3AIBxYC4b/uvAC6OZ0VSvriR
+#DCKxlytKr6tbaepYt1TmWXYlZc+qpP1KIaWavFoWh7R9xTRRKpoUAQoQWSET+jVG
+#msTFmheifevnNh8mzn8bmsk0GWLClMIwqMDwTFk/jtU=
 #-----END SIGNATURE-----
